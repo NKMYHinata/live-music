@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Now Playing Next</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        #container {
+            text-align: center;
+            width: 80%;
+            max-width: 600px;
+        }
+        #cover {
+            width: 200px;
+            height: 200px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            object-fit: cover;
+            margin-bottom: 20px;
+            background-color: #333;
+        }
+        #title {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0 0 10px 0;
+        }
+        #artist {
+            font-size: 18px;
+            color: #aaa;
+            margin: 0 0 20px 0;
+        }
+        #lyrics {
+            font-size: 20px;
+            height: 60px;
+            line-height: 1.5;
+            color: #4db6ac;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            white-space: pre-wrap;
+        }
+        #progress-container {
+            width: 100%;
+            height: 4px;
+            background-color: #333;
+            border-radius: 2px;
+            margin-top: 20px;
+            position: relative;
+        }
+        #progress-bar {
+            height: 100%;
+            background-color: #e91e63;
+            width: 0%;
+            border-radius: 2px;
+            transition: width 0.1s linear;
+        }
+        #status {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <img id="cover" src="" alt="Album Art" style="display:none;">
+        <h1 id="title">Waiting for music...</h1>
+        <h2 id="artist"></h2>
+        <div id="lyrics"></div>
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+    </div>
+    <div id="status">Disconnected</div>
+
+    <script>
+        const ws = new WebSocket(`ws://${location.host}`);
+        const statusEl = document.getElementById('status');
+        const titleEl = document.getElementById('title');
+        const artistEl = document.getElementById('artist');
+        const coverEl = document.getElementById('cover');
+        const lyricsEl = document.getElementById('lyrics');
+        const progressBar = document.getElementById('progress-bar');
+
+        let currentLyrics = [];
+        let startTime = 0; // Timestamp when song started or seeked
+        let startOffset = 0; // Offset in seconds
+        let isPlaying = false;
+        let songDuration = 0; // in seconds
+
+        ws.onopen = () => {
+            statusEl.textContent = 'Connected';
+            statusEl.style.color = '#4caf50';
+        };
+
+        ws.onclose = () => {
+            statusEl.textContent = 'Disconnected';
+            statusEl.style.color = '#f44336';
+        };
+
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            console.log('Received:', msg);
+
+            if (msg.type === 'song') {
+                const song = msg.data.songs ? msg.data.songs[0] : null;
+                if (song) {
+                    titleEl.textContent = song.name;
+                    artistEl.textContent = song.artists.map(a => a.name).join(', ');
+                    coverEl.src = song.album.picUrl;
+                    coverEl.style.display = 'inline-block';
+                    songDuration = song.duration / 1000;
+                }
+            } else if (msg.type === 'lyrics') {
+                if (msg.data.lrc) {
+                    currentLyrics = parseLrc(msg.data.lrc.lyric);
+                }
+            } else if (msg.type === 'progress') {
+                // Approximate progress from Range header
+                // Range: bytes=100-200/5000000
+                // We need file size to estimate time
+                // This is a rough estimation if we don't have bitrate
+                // Better logic: Reset timeline
+                const range = msg.data.range; // "bytes=START-"
+                const match = range.match(/bytes=(\d+)-/);
+                if (match) {
+                    const bytesStart = parseInt(match[1]);
+                    // Assuming 128kbps or similar, we can't be sure without file header
+                    // But usually, a seek happens.
+                    // For now, let's just use it as a "signal" that playback is active/seeked
+                    // To be precise, we need 'player_url' event which gives us size and duration
+                    
+                    // Simple hack: if bytesStart is 0, it's start.
+                    // If bytesStart > 0, user seeked.
+                    console.log('Seek/Play detected at byte:', bytesStart);
+                    
+                    // We can't map bytes to seconds easily without bitrate.
+                    // But if we captured /player/url response, we might know the size/duration mapping.
+                }
+            }
+        };
+
+        function parseLrc(lrc) {
+            const lines = lrc.split('\n');
+            const result = [];
+            const timeExp = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+            for (const line of lines) {
+                const match = timeExp.exec(line);
+                if (match) {
+                    const minutes = parseInt(match[1]);
+                    const seconds = parseInt(match[2]);
+                    const ms = parseInt(match[3]) * (match[3].length === 2 ? 10 : 1);
+                    const time = minutes * 60 + seconds + ms / 1000;
+                    const text = line.replace(timeExp, '').trim();
+                    if (text) {
+                        result.push({ time, text });
+                    }
+                }
+            }
+            return result;
+        }
+
+        // Update loop
+        function update() {
+            // For now, we don't have accurate timer sync implemented in this basic version
+            // This requires syncing client/server clocks and handling the 'progress' event properly
+            requestAnimationFrame(update);
+        }
+        update();
+
+    </script>
+</body>
+</html>
