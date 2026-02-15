@@ -58,6 +58,38 @@
             margin-bottom: 20px;
             font-weight: 600;
         }
+
+        .offset-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .offset-btn {
+            background: #444;
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .offset-btn:hover {
+            background: #555;
+        }
+        .offset-input {
+            background: #363636;
+            color: white;
+            border: 1px solid #555;
+            padding: 5px 10px;
+            border-radius: 5px;
+            width: 60px;
+            text-align: center;
+            font-size: 16px;
+        }
         .form-group {
             margin-bottom: 20px;
         }
@@ -74,7 +106,7 @@
         /* Custom Radio/Checkbox Styles */
         .option-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 15px;
         }
         .option-card {
@@ -155,6 +187,8 @@
             margin-top: 10px;
             flex-wrap: wrap;
         }
+
+        /* Color Input Styles */
         input[type="color"] {
             -webkit-appearance: none;
             border: none;
@@ -174,10 +208,15 @@
             border: 2px solid #555;
         }
         
+        /* Fix for disabled inputs still capturing clicks via parent or siblings if not careful */
         .disabled {
             opacity: 0.4;
             pointer-events: none;
             filter: grayscale(1);
+        }
+        /* Ensure inputs inside disabled containers are also disabled */
+        .disabled input {
+            pointer-events: none;
         }
         
         .info-text {
@@ -253,6 +292,13 @@
             width: 100%;
             height: 100%;
             cursor: pointer;
+            z-index: 2; /* Ensure input is on top */
+        }
+        
+        .disabled .custom-picker-btn input[type="color"], 
+        .disabled .swatch {
+            pointer-events: none;
+            cursor: not-allowed;
         }
         .custom-picker-btn span {
             font-size: 20px;
@@ -338,11 +384,20 @@
             
             <div class="form-group">
                 <label>Color Mode</label>
-                <select id="colorMode">
-                    <option value="light">Light (Vibrant)</option>
-                    <option value="dark">Dark (Deep)</option>
-                    <option value="system">System (Balanced)</option>
-                </select>
+                <div class="option-grid">
+                    <label class="option-card">
+                        <input type="radio" name="colorMode" value="light">
+                        <span>Light</span>
+                    </label>
+                    <label class="option-card">
+                        <input type="radio" name="colorMode" value="dark">
+                        <span>Dark</span>
+                    </label>
+                    <label class="option-card">
+                        <input type="radio" name="colorMode" value="system">
+                        <span>System</span>
+                    </label>
+                </div>
                 <div class="info-text">Determines how auto-colors are generated from the cover art.</div>
             </div>
 
@@ -432,9 +487,13 @@
             <div class="form-group">
                 <label>Lyric Offset (Global)</label>
                 <div class="info-text">Adjust if lyrics are out of sync. Default: 0.0s (Internally -0.3s)</div>
-                <div class="toggle-row">
-                    <input type="range" id="lyricOffset" min="-5" max="5" step="0.1" value="0" style="width: 100%;">
-                    <span id="lyricOffsetValue" style="width: 50px; text-align: right;">0.0s</span>
+                <div class="toggle-row" style="justify-content: flex-start; gap: 15px;">
+                    <div class="offset-controls">
+                        <button id="offsetDec" class="offset-btn">-</button>
+                        <input type="number" id="lyricOffset" class="offset-input" step="0.1" value="0.0">
+                        <button id="offsetInc" class="offset-btn">+</button>
+                    </div>
+                    <span style="font-size: 14px; color: #aaa;">seconds</span>
                 </div>
             </div>
 
@@ -496,7 +555,7 @@
         const els = {
             layoutStyle: document.getElementsByName('layoutStyle'),
             coverStyle: document.getElementsByName('coverStyle'),
-            colorMode: document.getElementById('colorMode'),
+            colorMode: document.getElementsByName('colorMode'),
             autoBgColor: document.getElementById('autoBgColor'),
             autoThemeColor: document.getElementById('autoThemeColor'),
             bgColor: document.getElementById('bgColor'),
@@ -512,7 +571,8 @@
             lyricBlur: document.getElementById('lyricBlur'),
             lyricBlurValue: document.getElementById('lyricBlurValue'),
             lyricOffset: document.getElementById('lyricOffset'),
-            lyricOffsetValue: document.getElementById('lyricOffsetValue'),
+            offsetDec: document.getElementById('offsetDec'),
+            offsetInc: document.getElementById('offsetInc'),
             lyricAlign: document.getElementsByName('lyricAlign'),
             autoLyricBg: document.getElementById('autoLyricBg'),
             autoLyricTheme: document.getElementById('autoLyricTheme'),
@@ -564,7 +624,12 @@
             }
             
             // Set Color Mode
-            els.colorMode.value = settings.colorMode || 'light';
+            for (const radio of els.colorMode) {
+                if (radio.value === (settings.colorMode || 'light')) {
+                    radio.checked = true;
+                    updateCardSelection(radio);
+                }
+            }
 
             // Set Checkbox
             if (settings.autoColor !== undefined) {
@@ -586,8 +651,7 @@
             els.lyricBlur.value = settings.lyricBlur !== undefined ? settings.lyricBlur : 2;
             els.lyricBlurValue.textContent = (settings.lyricBlur !== undefined ? settings.lyricBlur : 2) + 'px';
             
-            els.lyricOffset.value = settings.lyricOffset || 0;
-            els.lyricOffsetValue.textContent = (settings.lyricOffset || 0).toFixed(1) + 's';
+            els.lyricOffset.value = (settings.lyricOffset || 0).toFixed(1);
 
             for (const radio of els.lyricAlign) {
                 if (radio.value === (settings.lyricAlign || 'center')) {
@@ -657,10 +721,15 @@
                 if (radio.checked) selectedAlign = radio.value;
             }
 
+            let selectedColorMode = 'light';
+            for (const radio of els.colorMode) {
+                if (radio.checked) selectedColorMode = radio.value;
+            }
+
             const settings = {
                 layout: selectedLayout,
                 coverStyle: selectedStyle,
-                colorMode: els.colorMode.value,
+                colorMode: selectedColorMode,
                 autoBgColor: els.autoBgColor.checked,
                 autoThemeColor: els.autoThemeColor.checked,
                 bgColor: els.bgColor.value,
@@ -678,7 +747,6 @@
             // Update UI Labels
             els.lyricFontSizeValue.textContent = settings.lyricFontSize + 'px';
             els.lyricBlurValue.textContent = settings.lyricBlur + 'px';
-            els.lyricOffsetValue.textContent = settings.lyricOffset.toFixed(1) + 's';
 
             localStorage.setItem('musicOverlaySettings', JSON.stringify(settings));
             
@@ -806,8 +874,10 @@
                 updateCardSelection(e.target);
                 saveSettings();
             }));
-            
-            els.colorMode.addEventListener(evt, saveSettings);
+            els.colorMode.forEach(el => el.addEventListener(evt, (e) => {
+                updateCardSelection(e.target);
+                saveSettings();
+            }));
             
             els.autoBgColor.addEventListener(evt, () => {
                 updateUI();
@@ -823,7 +893,18 @@
             // Lyrics Listeners
             els.lyricFontSize.addEventListener(evt, saveSettings);
             els.lyricBlur.addEventListener(evt, saveSettings);
-            els.lyricOffset.addEventListener(evt, saveSettings);
+            
+            // Offset Listeners (Only on change/input for the number input)
+            if (evt === 'change') {
+                 els.lyricOffset.addEventListener('change', () => {
+                     let val = parseFloat(els.lyricOffset.value);
+                     if (val < -10) val = -10;
+                     if (val > 10) val = 10;
+                     els.lyricOffset.value = val.toFixed(1);
+                     saveSettings();
+                 });
+            }
+
             els.lyricAlign.forEach(el => el.addEventListener(evt, (e) => {
                 updateCardSelection(e.target);
                 saveSettings();
@@ -838,6 +919,23 @@
             });
             els.lyricBgColor.addEventListener(evt, saveSettings);
             els.lyricThemeColor.addEventListener(evt, saveSettings);
+        });
+        
+        // Button Listeners for Offset
+        els.offsetDec.addEventListener('click', () => {
+             let val = parseFloat(els.lyricOffset.value);
+             val -= 0.1;
+             if (val < -10) val = -10;
+             els.lyricOffset.value = val.toFixed(1);
+             saveSettings();
+        });
+        
+        els.offsetInc.addEventListener('click', () => {
+             let val = parseFloat(els.lyricOffset.value);
+             val += 0.1;
+             if (val > 10) val = 10;
+             els.lyricOffset.value = val.toFixed(1);
+             saveSettings();
         });
 
         // Init

@@ -244,20 +244,23 @@
             // If Auto is disabled, we force manual colors
             
             if (!settings.autoLyricTheme) {
-                if (settings.themeColor) {
+                if (settings.lyricThemeColor) {
+                    document.documentElement.style.setProperty('--text-color', settings.lyricThemeColor);
+                } else if (settings.themeColor) {
+                     // Fallback for legacy
                     document.documentElement.style.setProperty('--text-color', settings.themeColor);
                 }
             } else {
-                 // Trigger re-analysis if we have image but no auto color applied yet?
-                 // Or just let the image load handler do it.
-                 // If we switch to auto, and image is already loaded, we should re-apply
                  if (currentSongPicUrl) {
                      analyzeAndApplyColors(tempImg);
                  }
             }
 
             if (!settings.autoLyricBg) {
-                if (settings.bgColor) {
+                if (settings.lyricBgColor) {
+                    document.documentElement.style.setProperty('--bg-color', settings.lyricBgColor);
+                } else if (settings.bgColor) {
+                    // Fallback for legacy
                     document.documentElement.style.setProperty('--bg-color', settings.bgColor);
                 }
             } else {
@@ -302,15 +305,10 @@
                 
                 if (settings.autoLyricBg) {
                     document.documentElement.style.setProperty('--bg-color', colors.bg);
-                } else if (settings.bgColor) {
-                     // Ensure fallback if unchecked
-                    document.documentElement.style.setProperty('--bg-color', settings.bgColor);
                 }
                 
                 if (settings.autoLyricTheme) {
                     document.documentElement.style.setProperty('--text-color', colors.theme);
-                } else if (settings.themeColor) {
-                    document.documentElement.style.setProperty('--text-color', settings.themeColor);
                 }
             } catch (e) {
                 console.warn("Analysis failed", e);
