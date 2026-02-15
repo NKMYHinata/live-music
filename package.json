@@ -1,0 +1,48 @@
+{
+  "name": "live-music",
+  "version": "0.1.0",
+  "description": "Next generation Now Playing for OBS with Netease Cloud Music support via Proxy",
+  "main": "main.js",
+  "scripts": {
+    "start": "node index.js",
+    "start:electron": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "anyproxy": "^4.1.3",
+    "ws": "^8.16.0",
+    "crypto-js": "^4.2.0",
+    "fs-extra": "^11.2.0"
+  },
+  "devDependencies": {
+    "electron": "^29.1.0",
+    "electron-builder": "^24.13.0",
+    "open": "^10.0.3"
+  },
+  "build": {
+    "appId": "com.livemusic.app",
+    "productName": "Live Music",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "files": [
+      "**/*",
+      "!local_home/**"
+    ],
+    "extraResources": [
+      {
+        "from": "get_title.ps1",
+        "to": "get_title.ps1"
+      }
+    ]
+  }
+}

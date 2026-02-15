@@ -1,0 +1,8 @@
+node_modules
+local_home
+*.log
+.DS_Store
+Microsoft/
+dist/
+release/
+build/

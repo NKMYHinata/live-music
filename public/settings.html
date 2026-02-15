@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音乐悬浮窗设置</title>
+    <style>
+        :root {
+            --primary: #e91e63;
+            --primary-dark: #c2185b;
+            --bg-dark: #1a1a1a;
+            --bg-panel: #2d2d2d;
+            --text-main: #fff;
+            --text-muted: #aaa;
+            --border: #444;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+            margin: 0;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: var(--bg-panel);
+            padding: 40px;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        h1 {
+            text-align: center;
+            margin: 0 0 40px 0;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+        .section {
+            margin-bottom: 35px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 35px;
+        }
+        .section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 0;
+        }
+        .section-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .offset-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .offset-btn {
+            background: #444;
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .offset-btn:hover {
+            background: #555;
+        }
+        .offset-input {
+            background: #363636;
+            color: white;
+            border: 1px solid #555;
+            padding: 5px 10px;
+            border-radius: 5px;
+            width: 60px;
+            text-align: center;
+            font-size: 16px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 500;
+            font-size: 16px;
+        }
+        
+        /* Custom Radio/Checkbox Styles */
+        .option-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+        }
+        .option-card {
+            background: #363636;
+            border: 2px solid transparent;
+            padding: 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .option-card:hover {
+            background: #404040;
+        }
+        .option-card.selected {
+            background: rgba(233, 30, 99, 0.1);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .option-card input {
+            display: none;
+        }
+        
+        /* Toggles */
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 24px;
+        }
+        .toggle-switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #555;
+            transition: .3s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: var(--primary);
+        }
+        input:checked + .slider:before {
+            transform: translateX(22px);
+        }
+
+        /* Color Inputs */
+        .color-picker-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Color Input Styles */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            cursor: pointer;
+            padding: 0;
+            background: none;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 10px;
+            border: 2px solid #555;
+        }
+        
+        /* Fix for disabled inputs still capturing clicks via parent or siblings if not careful */
+        .disabled {
+            opacity: 0.4;
+            pointer-events: none;
+            filter: grayscale(1);
+        }
+        /* Ensure inputs inside disabled containers are also disabled */
+        .disabled input {
+            pointer-events: none;
+        }
+        
+        .info-text {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        .preview-footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 13px;
+            color: #666;
+            padding-top: 20px;
+            border-top: 1px dashed #444;
+        }
+
+        select {
+            background-color: #363636;
+            color: white;
+            border: 1px solid #555;
+            padding: 8px 12px;
+            border-radius: 8px;
+            width: 100%;
+            font-size: 14px;
+            margin-top: 5px;
+            outline: none;
+        }
+        select:focus {
+            border-color: var(--primary);
+        }
+
+        /* Swatches */
+        .swatch-list {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .swatch {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #555;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .swatch:hover {
+            transform: scale(1.1);
+        }
+        .swatch.active {
+            border-color: #fff;
+            transform: scale(1.1);
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+        
+        .custom-picker-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: 2px solid #555;
+            position: relative;
+            overflow: hidden;
+        }
+        .custom-picker-btn input[type="color"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            z-index: 2; /* Ensure input is on top */
+        }
+        
+        .disabled .custom-picker-btn input[type="color"], 
+        .disabled .swatch {
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+        .custom-picker-btn span {
+            font-size: 20px;
+            color: #aaa;
+        }
+
+        /* Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none; 
+            width: 100%; 
+            background: transparent; 
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            margin-top: -7px; 
+            box-shadow: 0 0 2px rgba(0,0,0,0.5);
+        }
+        
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #555;
+            border-radius: 2px;
+        }
+        
+        input[type=range]:focus {
+            outline: none;
+        }
+        
+        input[type=range]:focus::-webkit-slider-runnable-track {
+            background: #666;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>悬浮窗设置</h1>
+        
+        <!-- Style Section -->
+        <div class="section">
+            <div class="section-title">外观</div>
+            
+            <div class="form-group">
+                <label>布局样式</label>
+                <div class="option-grid">
+                    <label class="option-card">
+                        <input type="radio" name="layoutStyle" value="bar" checked>
+                        <span>条形 (水平)</span>
+                    </label>
+                    <label class="option-card">
+                        <input type="radio" name="layoutStyle" value="boxed">
+                        <span>盒状 (垂直)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>封面形状</label>
+                <div class="option-grid">
+                    <label class="option-card">
+                        <input type="radio" name="coverStyle" value="circle" checked>
+                        <span>圆形 (黑胶)</span>
+                    </label>
+                    <label class="option-card">
+                        <input type="radio" name="coverStyle" value="rect">
+                        <span>圆角矩形</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>封面特效</label>
+                <div class="toggle-row">
+                    <div>
+                        <label style="margin:0; font-size:14px;">描边 / 边框</label>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="coverBorder">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-row">
+                    <div>
+                        <label style="margin:0; font-size:14px;">发光 / 扩散</label>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="coverGlow" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Color Section -->
+        <div class="section">
+            <div class="section-title">颜色与主题</div>
+            
+            <div class="form-group">
+                <label>颜色模式</label>
+                <div class="option-grid">
+                    <label class="option-card">
+                        <input type="radio" name="colorMode" value="light">
+                        <span>浅色</span>
+                    </label>
+                    <label class="option-card">
+                        <input type="radio" name="colorMode" value="dark">
+                        <span>深色</span>
+                    </label>
+                    <label class="option-card">
+                        <input type="radio" name="colorMode" value="system">
+                        <span>跟随系统</span>
+                    </label>
+                </div>
+                <div class="info-text">决定从封面提取颜色的算法模式。</div>
+            </div>
+
+            <!-- Background Color -->
+            <div class="form-group">
+                <div class="toggle-row">
+                    <div>
+                        <label style="margin:0">自动背景色</label>
+                        <div class="info-text">从封面提取主色调</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoBgColor" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div id="customBgColorGroup" class="color-picker-row">
+                    <div class="swatch-list" id="bgSwatches">
+                        <!-- Swatches populated by JS -->
+                    </div>
+                    <div class="custom-picker-btn" title="Pick Custom Color">
+                        <span>+</span>
+                        <input type="color" id="bgColor" value="#1a1a1a">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Theme Color -->
+            <div class="form-group" style="margin-top: 20px;">
+                <div class="toggle-row">
+                    <div>
+                        <label style="margin:0">自动文字颜色</label>
+                        <div class="info-text">匹配封面色调</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoThemeColor" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div id="customThemeColorGroup" class="color-picker-row">
+                    <div class="swatch-list" id="themeSwatches">
+                         <!-- Swatches populated by JS -->
+                    </div>
+                    <div class="custom-picker-btn" title="Pick Custom Color">
+                        <span>+</span>
+                        <input type="color" id="themeColor" value="#e91e63">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lyrics Section -->
+        <div class="section">
+            <div class="section-title">歌词</div>
+
+            <div class="form-group">
+                <label>字体大小</label>
+                <div class="toggle-row">
+                    <input type="range" id="lyricFontSize" min="10" max="100" value="40" style="width: 100%;">
+                    <span id="lyricFontSizeValue" style="width: 50px; text-align: right;">40px</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>非活跃歌词模糊度</label>
+                <div class="toggle-row">
+                    <input type="range" id="lyricBlur" min="0" max="10" step="0.5" value="2" style="width: 100%;">
+                    <span id="lyricBlurValue" style="width: 50px; text-align: right;">2px</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>对齐方式</label>
+                <div class="option-grid">
+                    <label class="option-card">
+                        <input type="radio" name="lyricAlign" value="left" checked>
+                        <span>左对齐</span>
+                    </label>
+                    <label class="option-card">
+                        <input type="radio" name="lyricAlign" value="center">
+                        <span>居中</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>歌词偏移 (全局)</label>
+                <div class="info-text">如果歌词不同步可在此调整。默认: 0.0s (内部预设 -0.3s)</div>
+                <div class="toggle-row" style="justify-content: flex-start; gap: 15px;">
+                    <div class="offset-controls">
+                        <button id="offsetDec" class="offset-btn">-</button>
+                        <input type="number" id="lyricOffset" class="offset-input" step="0.1" value="0.0">
+                        <button id="offsetInc" class="offset-btn">+</button>
+                    </div>
+                    <span style="font-size: 14px; color: #aaa;">秒</span>
+                </div>
+            </div>
+
+            <!-- Auto Colors for Lyrics -->
+             <div class="form-group">
+                <label>自动颜色</label>
+                <div class="info-text">与信息页逻辑相同，使用封面颜色分析。</div>
+                
+                <div class="toggle-row">
+                    <div>
+                        <label style="margin:0; font-size:14px;">自动背景色</label>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoLyricBg" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div id="customLyricBgGroup" class="color-picker-row">
+                    <div class="swatch-list" id="lyricBgSwatches"></div>
+                    <div class="custom-picker-btn">
+                        <span>+</span>
+                        <input type="color" id="lyricBgColor" value="#1a1a1a">
+                    </div>
+                </div>
+
+                <div class="toggle-row" style="margin-top: 15px;">
+                    <div>
+                        <label style="margin:0; font-size:14px;">自动文字颜色</label>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoLyricTheme" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div id="customLyricThemeGroup" class="color-picker-row">
+                    <div class="swatch-list" id="lyricThemeSwatches"></div>
+                    <div class="custom-picker-btn">
+                        <span>+</span>
+                        <input type="color" id="lyricThemeColor" value="#e91e63">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">系统</div>
+            <div class="form-group">
+                <label>HTTPS 证书</label>
+                <div class="info-text">解密网易云流量所需。请安装为“受信任的根证书颁发机构”。</div>
+                <a href="/cert" style="text-decoration: none; display: block; margin-top: 10px;">
+                    <button class="offset-btn" style="width: 100%; padding: 10px; border-radius: 8px;">下载根证书 (Root CA)</button>
+                </a>
+            </div>
+            <div class="form-group">
+                <label>网易云代理端口 (需重启)</label>
+                <input type="number" id="neteasePort" class="offset-input" style="width: 100%; text-align: left;" placeholder="8001">
+            </div>
+            <div class="form-group">
+                <label>歌曲信息端口 (需重启)</label>
+                <input type="number" id="infoPort" class="offset-input" style="width: 100%; text-align: left;" placeholder="8003">
+            </div>
+             <div class="form-group" style="text-align: right;">
+                <button id="saveConfigBtn" class="offset-btn" style="width: auto; padding: 10px 20px; border-radius: 8px;">保存系统配置</button>
+            </div>
+        </div>
+
+        <div class="preview-footer">
+            更改会自动保存并实时生效。
+        </div>
+    </div>
+    
+    <!-- Hidden Canvas for Color Extraction -->
+    <canvas id="analysisCanvas" width="50" height="50" style="display:none;"></canvas>
+    <img id="tempCover" style="display:none;" crossorigin="Anonymous">
+
+    <script>
+        const ws = new WebSocket(`ws://${location.host}`);
+        
+        const els = {
+            layoutStyle: document.getElementsByName('layoutStyle'),
+            coverStyle: document.getElementsByName('coverStyle'),
+            coverBorder: document.getElementById('coverBorder'),
+            coverGlow: document.getElementById('coverGlow'),
+            colorMode: document.getElementsByName('colorMode'),
+            autoBgColor: document.getElementById('autoBgColor'),
+            autoThemeColor: document.getElementById('autoThemeColor'),
+            bgColor: document.getElementById('bgColor'),
+            themeColor: document.getElementById('themeColor'),
+            customBgColorGroup: document.getElementById('customBgColorGroup'),
+            customThemeColorGroup: document.getElementById('customThemeColorGroup'),
+            bgSwatches: document.getElementById('bgSwatches'),
+            themeSwatches: document.getElementById('themeSwatches'),
+            tempCover: document.getElementById('tempCover'),
+            // Lyrics
+            lyricFontSize: document.getElementById('lyricFontSize'),
+            lyricFontSizeValue: document.getElementById('lyricFontSizeValue'),
+            lyricBlur: document.getElementById('lyricBlur'),
+            lyricBlurValue: document.getElementById('lyricBlurValue'),
+            lyricOffset: document.getElementById('lyricOffset'),
+            offsetDec: document.getElementById('offsetDec'),
+            offsetInc: document.getElementById('offsetInc'),
+            lyricAlign: document.getElementsByName('lyricAlign'),
+            autoLyricBg: document.getElementById('autoLyricBg'),
+            autoLyricTheme: document.getElementById('autoLyricTheme'),
+            lyricBgColor: document.getElementById('lyricBgColor'),
+            lyricThemeColor: document.getElementById('lyricThemeColor'),
+            customLyricBgGroup: document.getElementById('customLyricBgGroup'),
+            customLyricThemeGroup: document.getElementById('customLyricThemeGroup'),
+            lyricBgSwatches: document.getElementById('lyricBgSwatches'),
+            lyricThemeSwatches: document.getElementById('lyricThemeSwatches'),
+            // System
+            neteasePort: document.getElementById('neteasePort'),
+            infoPort: document.getElementById('infoPort'),
+            saveConfigBtn: document.getElementById('saveConfigBtn')
+        };
+        
+        let currentCoverColors = [];
+
+        // Fetch Server Config
+        fetch('/config')
+            .then(res => res.json())
+            .then(config => {
+                if (config.neteasePort) els.neteasePort.value = config.neteasePort;
+                if (config.infoPort) els.infoPort.value = config.infoPort;
+            })
+            .catch(err => console.error('Failed to load server config:', err));
+
+        els.saveConfigBtn.addEventListener('click', () => {
+            const newConfig = {
+                neteasePort: parseInt(els.neteasePort.value) || 8001,
+                infoPort: parseInt(els.infoPort.value) || 8003
+            };
+            
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'updateConfig', data: newConfig }));
+            } else {
+                alert('连接断开，请重试。');
+            }
+        });
+
+        // Load settings
+        function loadSettings() {
+            const settings = JSON.parse(localStorage.getItem('musicOverlaySettings')) || {
+                layout: 'bar',
+                coverStyle: 'circle',
+                coverBorder: false,
+                coverGlow: true,
+                colorMode: 'light',
+                autoBgColor: true,
+                autoThemeColor: true,
+                bgColor: '#1a1a1a',
+                themeColor: '#e91e63',
+                // Default Lyric Settings
+                lyricFontSize: 40,
+                lyricBlur: 2,
+                lyricOffset: 0,
+                lyricAlign: 'left',
+                autoLyricBg: true,
+                autoLyricTheme: true,
+                lyricBgColor: '#1a1a1a',
+                lyricThemeColor: '#e91e63'
+            };
+
+            // Set Layout Radio
+            for (const radio of els.layoutStyle) {
+                if (radio.value === (settings.layout || 'bar')) {
+                    radio.checked = true;
+                    updateCardSelection(radio);
+                }
+            }
+
+            // Set Cover Radio
+            for (const radio of els.coverStyle) {
+                if (radio.value === (settings.coverStyle || 'circle')) {
+                    radio.checked = true;
+                    updateCardSelection(radio);
+                }
+            }
+
+            // Set Cover Effects
+            els.coverBorder.checked = settings.coverBorder !== undefined ? settings.coverBorder : false;
+            els.coverGlow.checked = settings.coverGlow !== undefined ? settings.coverGlow : true;
+            
+            // Set Color Mode
+            for (const radio of els.colorMode) {
+                if (radio.value === (settings.colorMode || 'light')) {
+                    radio.checked = true;
+                    updateCardSelection(radio);
+                }
+            }
+
+            // Set Checkbox
+            if (settings.autoColor !== undefined) {
+                els.autoBgColor.checked = settings.autoColor;
+                els.autoThemeColor.checked = settings.autoColor;
+            } else {
+                els.autoBgColor.checked = settings.autoBgColor !== undefined ? settings.autoBgColor : true;
+                els.autoThemeColor.checked = settings.autoThemeColor !== undefined ? settings.autoThemeColor : true;
+            }
+
+            // Set Colors
+            els.bgColor.value = settings.bgColor || '#1a1a1a';
+            els.themeColor.value = settings.themeColor || '#e91e63';
+
+            // Set Lyric Settings
+            els.lyricFontSize.value = settings.lyricFontSize || 40;
+            els.lyricFontSizeValue.textContent = (settings.lyricFontSize || 40) + 'px';
+            
+            els.lyricBlur.value = settings.lyricBlur !== undefined ? settings.lyricBlur : 2;
+            els.lyricBlurValue.textContent = (settings.lyricBlur !== undefined ? settings.lyricBlur : 2) + 'px';
+            
+            els.lyricOffset.value = (settings.lyricOffset || 0).toFixed(1);
+
+            for (const radio of els.lyricAlign) {
+                if (radio.value === (settings.lyricAlign || 'left')) {
+                    radio.checked = true;
+                    updateCardSelection(radio);
+                }
+            }
+
+            // Lyric Auto Colors
+            els.autoLyricBg.checked = settings.autoLyricBg !== undefined ? settings.autoLyricBg : true;
+            els.autoLyricTheme.checked = settings.autoLyricTheme !== undefined ? settings.autoLyricTheme : true;
+            els.lyricBgColor.value = settings.lyricBgColor || '#1a1a1a';
+            els.lyricThemeColor.value = settings.lyricThemeColor || '#e91e63';
+
+            updateUI();
+        }
+
+        function updateCardSelection(radioInput) {
+            const card = radioInput.closest('.option-card');
+            const name = radioInput.name;
+            document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
+                input.closest('.option-card').classList.remove('selected');
+            });
+            card.classList.add('selected');
+        }
+
+        function updateUI() {
+            if (els.autoBgColor.checked) {
+                els.customBgColorGroup.classList.add('disabled');
+            } else {
+                els.customBgColorGroup.classList.remove('disabled');
+            }
+
+            if (els.autoThemeColor.checked) {
+                els.customThemeColorGroup.classList.add('disabled');
+            } else {
+                els.customThemeColorGroup.classList.remove('disabled');
+            }
+
+            // Lyrics UI
+            if (els.autoLyricBg.checked) {
+                els.customLyricBgGroup.classList.add('disabled');
+            } else {
+                els.customLyricBgGroup.classList.remove('disabled');
+            }
+
+            if (els.autoLyricTheme.checked) {
+                els.customLyricThemeGroup.classList.add('disabled');
+            } else {
+                els.customLyricThemeGroup.classList.remove('disabled');
+            }
+        }
+
+        function saveSettings() {
+            let selectedLayout = 'boxed';
+            for (const radio of els.layoutStyle) {
+                if (radio.checked) selectedLayout = radio.value;
+            }
+
+            let selectedStyle = 'rect';
+            for (const radio of els.coverStyle) {
+                if (radio.checked) selectedStyle = radio.value;
+            }
+
+            let selectedAlign = 'center';
+            for (const radio of els.lyricAlign) {
+                if (radio.checked) selectedAlign = radio.value;
+            }
+
+            let selectedColorMode = 'light';
+            for (const radio of els.colorMode) {
+                if (radio.checked) selectedColorMode = radio.value;
+            }
+
+            const settings = {
+                layout: selectedLayout,
+                coverStyle: selectedStyle,
+                coverBorder: els.coverBorder.checked,
+                coverGlow: els.coverGlow.checked,
+                colorMode: selectedColorMode,
+                autoBgColor: els.autoBgColor.checked,
+                autoThemeColor: els.autoThemeColor.checked,
+                bgColor: els.bgColor.value,
+                themeColor: els.themeColor.value,
+                lyricFontSize: parseInt(els.lyricFontSize.value),
+                lyricBlur: parseFloat(els.lyricBlur.value),
+                lyricOffset: parseFloat(els.lyricOffset.value),
+                lyricAlign: selectedAlign,
+                autoLyricBg: els.autoLyricBg.checked,
+                autoLyricTheme: els.autoLyricTheme.checked,
+                lyricBgColor: els.lyricBgColor.value,
+                lyricThemeColor: els.lyricThemeColor.value
+            };
+
+            // Update UI Labels
+            els.lyricFontSizeValue.textContent = settings.lyricFontSize + 'px';
+            els.lyricBlurValue.textContent = settings.lyricBlur + 'px';
+
+            localStorage.setItem('musicOverlaySettings', JSON.stringify(settings));
+            
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: 'musicOverlaySettings',
+                newValue: JSON.stringify(settings)
+            }));
+
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'settings', data: settings }));
+            }
+        }
+
+        // WebSocket for Settings Sync
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'song') {
+                const song = msg.data.songs ? msg.data.songs[0] : null;
+                if (song && song.album.picUrl) {
+                    els.tempCover.src = song.album.picUrl;
+                }
+            } else if (msg.type === 'settings') {
+                localStorage.setItem('musicOverlaySettings', JSON.stringify(msg.data));
+                loadSettings();
+            } else if (msg.type === 'configSaved') {
+                alert(msg.message);
+            }
+        };
+
+        els.tempCover.onload = function() {
+            try {
+                currentCoverColors = getDominantColors(this);
+                renderSwatches();
+            } catch(e) { console.error(e); }
+        };
+
+        function getDominantColors(img) {
+            const canvas = document.getElementById('analysisCanvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(img, 0, 0, 50, 50);
+            
+            const imageData = ctx.getImageData(0, 0, 50, 50).data;
+            const colorCounts = {};
+            
+            for (let i = 0; i < imageData.length; i += 4) {
+                const r = imageData[i];
+                const g = imageData[i+1];
+                const b = imageData[i+2];
+                const a = imageData[i+3];
+                if (a < 128) continue;
+                const qr = Math.floor(r / 32) * 32;
+                const qg = Math.floor(g / 32) * 32;
+                const qb = Math.floor(b / 32) * 32;
+                const key = `${qr},${qg},${qb}`;
+                colorCounts[key] = (colorCounts[key] || 0) + 1;
+            }
+
+            const sortedColors = Object.keys(colorCounts).sort((a, b) => colorCounts[b] - colorCounts[a]);
+            return sortedColors.slice(0, 5).map(c => {
+                const [r, g, b] = c.split(',').map(Number);
+                return `rgb(${r},${g},${b})`;
+            });
+        }
+        
+        function rgbToHex(rgb) {
+             // Convert rgb(r, g, b) to #rrggbb
+             const sep = rgb.indexOf(",") > -1 ? "," : " ";
+             const rgbArr = rgb.substr(4).split(")")[0].split(sep);
+             
+             let r = (+rgbArr[0]).toString(16),
+                 g = (+rgbArr[1]).toString(16),
+                 b = (+rgbArr[2]).toString(16);
+           
+             if (r.length == 1) r = "0" + r;
+             if (g.length == 1) g = "0" + g;
+             if (b.length == 1) b = "0" + b;
+           
+             return "#" + r + g + b;
+        }
+
+        function renderSwatches() {
+            // Helper to create swatches
+            const createSwatch = (color, targetInput) => {
+                const hex = rgbToHex(color);
+                const swatch = document.createElement('div');
+                swatch.className = 'swatch';
+                swatch.style.backgroundColor = color;
+                swatch.onclick = () => {
+                    targetInput.value = hex;
+                    saveSettings();
+                };
+                return swatch;
+            };
+
+            // Render BG Swatches
+            els.bgSwatches.innerHTML = '';
+            currentCoverColors.forEach(color => {
+                els.bgSwatches.appendChild(createSwatch(color, els.bgColor));
+            });
+
+            // Render Theme Swatches
+            els.themeSwatches.innerHTML = '';
+            currentCoverColors.forEach(color => {
+                els.themeSwatches.appendChild(createSwatch(color, els.themeColor));
+            });
+
+            // Render Lyric BG Swatches
+            els.lyricBgSwatches.innerHTML = '';
+            currentCoverColors.forEach(color => {
+                els.lyricBgSwatches.appendChild(createSwatch(color, els.lyricBgColor));
+            });
+
+            // Render Lyric Theme Swatches
+            els.lyricThemeSwatches.innerHTML = '';
+            currentCoverColors.forEach(color => {
+                els.lyricThemeSwatches.appendChild(createSwatch(color, els.lyricThemeColor));
+            });
+        }
+
+        // Listeners
+        ['change', 'input'].forEach(evt => {
+            els.layoutStyle.forEach(el => el.addEventListener(evt, (e) => {
+                updateCardSelection(e.target);
+                saveSettings();
+            }));
+            els.coverStyle.forEach(el => el.addEventListener(evt, (e) => {
+                updateCardSelection(e.target);
+                saveSettings();
+            }));
+            
+            // Cover Effects
+            els.coverBorder.addEventListener(evt, saveSettings);
+            els.coverGlow.addEventListener(evt, saveSettings);
+
+            els.colorMode.forEach(el => el.addEventListener(evt, (e) => {
+                updateCardSelection(e.target);
+                saveSettings();
+            }));
+            
+            els.autoBgColor.addEventListener(evt, () => {
+                updateUI();
+                saveSettings();
+            });
+            els.autoThemeColor.addEventListener(evt, () => {
+                updateUI();
+                saveSettings();
+            });
+            els.bgColor.addEventListener(evt, saveSettings);
+            els.themeColor.addEventListener(evt, saveSettings);
+            
+            // Lyrics Listeners
+            els.lyricFontSize.addEventListener(evt, saveSettings);
+            els.lyricBlur.addEventListener(evt, saveSettings);
+            
+            // Offset Listeners (Only on change/input for the number input)
+            if (evt === 'change') {
+                 els.lyricOffset.addEventListener('change', () => {
+                     let val = parseFloat(els.lyricOffset.value);
+                     if (val < -10) val = -10;
+                     if (val > 10) val = 10;
+                     els.lyricOffset.value = val.toFixed(1);
+                     saveSettings();
+                 });
+            }
+
+            els.lyricAlign.forEach(el => el.addEventListener(evt, (e) => {
+                updateCardSelection(e.target);
+                saveSettings();
+            }));
+            els.autoLyricBg.addEventListener(evt, () => {
+                updateUI();
+                saveSettings();
+            });
+            els.autoLyricTheme.addEventListener(evt, () => {
+                updateUI();
+                saveSettings();
+            });
+            els.lyricBgColor.addEventListener(evt, saveSettings);
+            els.lyricThemeColor.addEventListener(evt, saveSettings);
+        });
+        
+        // Button Listeners for Offset
+        els.offsetDec.addEventListener('click', () => {
+             let val = parseFloat(els.lyricOffset.value);
+             val -= 0.1;
+             if (val < -10) val = -10;
+             els.lyricOffset.value = val.toFixed(1);
+             saveSettings();
+        });
+        
+        els.offsetInc.addEventListener('click', () => {
+             let val = parseFloat(els.lyricOffset.value);
+             val += 0.1;
+             if (val > 10) val = 10;
+             els.lyricOffset.value = val.toFixed(1);
+             saveSettings();
+        });
+
+        // Init
+        loadSettings();
+    </script>
+</body>
+</html>

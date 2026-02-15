@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Now Playing Next</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        #container {
+            text-align: center;
+            width: 80%;
+            max-width: 600px;
+        }
+        #cover-wrapper {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 20px auto;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            background-color: #333;
+            display: none;
+            transition: border-radius 0.3s ease;
+        }
+        
+        /* CD / Circle Style */
+        #cover-wrapper.circle {
+            border-radius: 50%;
+            animation: rotate 20s linear infinite;
+        }
+        #cover-wrapper.circle::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            background-color: var(--theme-color, #e91e63);
+            border-radius: 50%;
+            z-index: 10;
+        }
+        #cover-wrapper.circle::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            background-color: #ccc;
+            border-radius: 50%;
+            z-index: 11;
+        }
+
+        /* Rect Style */
+        #cover-wrapper.rect {
+            border-radius: 10px;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        #cover {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            border-radius: inherit;
+        }
+        #title {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0 0 10px 0;
+        }
+        #artist {
+            font-size: 18px;
+            color: #aaa;
+            margin: 0 0 20px 0;
+        }
+        #lyrics {
+            font-size: 20px;
+            height: 60px;
+            line-height: 1.5;
+            color: #4db6ac;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            white-space: pre-wrap;
+        }
+        #progress-container {
+            width: 100%;
+            height: 4px;
+            background-color: #333;
+            border-radius: 2px;
+            margin-top: 20px;
+            position: relative;
+        }
+        #progress-bar {
+            height: 100%;
+            background-color: #e91e63;
+            width: 0%;
+            border-radius: 2px;
+            transition: width 0.1s linear;
+        }
+        #status {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="cover-wrapper">
+            <img id="cover" src="" alt="Album Art">
+        </div>
+        <h1 id="title">Waiting for music...</h1>
+        <h2 id="artist"></h2>
+        <div id="lyrics"></div>
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+        <div id="time-info" style="display: flex; justify-content: space-between; font-size: 14px; color: #aaa; margin-top: 5px;">
+            <span id="current-time">0:00</span>
+            <span id="total-time">0:00</span>
+        </div>
+    </div>
+    <div id="status">Disconnected</div>
+
+    <script>
+        const ws = new WebSocket(`ws://${location.host}`);
+        const statusEl = document.getElementById('status');
+        const titleEl = document.getElementById('title');
+        const artistEl = document.getElementById('artist');
+        const coverWrapper = document.getElementById('cover-wrapper');
+        const coverEl = document.getElementById('cover');
+        const lyricsEl = document.getElementById('lyrics');
+        const progressBar = document.getElementById('progress-bar');
+        const currentTimeEl = document.getElementById('current-time');
+        const totalTimeEl = document.getElementById('total-time');
+
+        // Apply settings
+        function applySettings(settings) {
+            if (!settings) return;
+            
+            // Cover Style
+            coverWrapper.classList.remove('circle', 'rect');
+            if (settings.coverStyle === 'circle') {
+                coverWrapper.classList.add('circle');
+            } else {
+                coverWrapper.classList.add('rect');
+            }
+
+            // Colors
+            if (settings.themeColor) {
+                document.documentElement.style.setProperty('--theme-color', settings.themeColor);
+                progressBar.style.backgroundColor = settings.themeColor;
+            }
+            if (settings.bgColor) {
+                document.body.style.backgroundColor = settings.bgColor;
+            }
+        }
+
+        function loadSettings() {
+            try {
+                const settings = JSON.parse(localStorage.getItem('musicOverlaySettings'));
+                if (settings) applySettings(settings);
+            } catch (e) {
+                console.error("Failed to load settings", e);
+            }
+        }
+
+        // Initial load
+        loadSettings();
+
+        // Listen for storage changes (cross-tab sync)
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'musicOverlaySettings') {
+                loadSettings();
+            }
+        });
+
+        let currentLyrics = [];
+        let startTime = 0; 
+        let isPlaying = false;
+        let songDuration = 0; // in seconds
+        
+        // Timer for simulated progress
+        let simulatedPosition = 0;
+
+        ws.onopen = () => {
+            statusEl.textContent = 'Connected';
+            statusEl.style.color = '#4caf50';
+        };
+
+        ws.onclose = () => {
+            statusEl.textContent = 'Disconnected';
+            statusEl.style.color = '#f44336';
+        };
+
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            
+            if (msg.type === 'song') {
+                const song = msg.data.songs ? msg.data.songs[0] : null;
+                if (song) {
+                    titleEl.textContent = song.name;
+                    artistEl.textContent = song.artists.map(a => a.name).join(', ');
+                    coverEl.src = song.album.picUrl;
+                    coverWrapper.style.display = 'block';
+                    
+                    // User requested scheme: playTime from API (ms) -> seconds
+                    // Fallback to duration if playTime not found
+                    // Check various possible locations for duration
+                    let ms = song.duration || 0;
+                    if (song.bMusic && song.bMusic.playTime) ms = song.bMusic.playTime;
+                    if (song.hMusic && song.hMusic.playTime) ms = song.hMusic.playTime;
+                    // Some APIs put it in main object as playTime?
+                    if (song.playTime) ms = song.playTime;
+
+                    songDuration = ms / 1000;
+                    
+                    // Reset timer
+                    startTime = Date.now();
+                    isPlaying = true;
+                    console.log('Song started. Duration:', songDuration);
+                }
+            } else if (msg.type === 'lyrics') {
+                const lrcData = msg.data;
+                // Prioritize yrc (verbatim lyrics) if available
+                if (lrcData.yrc && lrcData.yrc.lyric) {
+                    const parsed = parseYrc(lrcData.yrc.lyric);
+                    const translation = lrcData.tlyric ? parseLrc(lrcData.tlyric.lyric) : [];
+                    currentLyrics = mergeLyrics(parsed, translation);
+                    console.log('Verbatim Lyrics loaded:', currentLyrics.length, 'lines');
+                } else {
+                    const original = lrcData.lrc ? parseLrc(lrcData.lrc.lyric) : [];
+                    const translation = lrcData.tlyric ? parseLrc(lrcData.tlyric.lyric) : [];
+                    currentLyrics = mergeLyrics(original, translation);
+                    console.log('Standard Lyrics loaded:', currentLyrics.length, 'lines');
+                }
+                
+            } else if (msg.type === 'settings') {
+                localStorage.setItem('musicOverlaySettings', JSON.stringify(msg.data));
+                loadSettings();
+            } else if (msg.type === 'media_status') {
+                // Only use media_status for connection status or title updates if needed
+                // Ignoring position/duration as requested
+                statusEl.textContent = msg.data.status;
+            }
+        };
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "0:00";
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+        
+        function update() {
+            if (isPlaying && songDuration > 0) {
+                const now = Date.now();
+                // Simulated position
+                simulatedPosition = (now - startTime) / 1000;
+                
+                // Clamp to duration
+                if (simulatedPosition > songDuration) simulatedPosition = songDuration;
+
+                const percent = (simulatedPosition / songDuration) * 100;
+                progressBar.style.width = `${percent}%`;
+                currentTimeEl.textContent = formatTime(simulatedPosition);
+                totalTimeEl.textContent = formatTime(songDuration);
+                
+                syncLyrics(simulatedPosition);
+            }
+            requestAnimationFrame(update);
+        }
+        update();
+        
+        function syncLyrics(time) {
+            if (!currentLyrics.length) return;
+            
+            // Find current line
+            let activeLine = null;
+            for (let i = 0; i < currentLyrics.length; i++) {
+                if (currentLyrics[i].time <= time) {
+                    activeLine = currentLyrics[i];
+                } else {
+                    break;
+                }
+            }
+            
+            if (activeLine) {
+                // If we have parsed words (YRC), render karaoke style
+                if (activeLine.words) {
+                    let karaokeHtml = '<div style="display: flex; justify-content: center; flex-wrap: wrap;">';
+                    
+                    activeLine.words.forEach(word => {
+                        const wordStart = word.time / 1000; // YRC words are already in seconds but let's double check parser
+                        // Wait, my parser above divides by 1000, so word.time IS seconds.
+                        // Let's re-verify:
+                        // [26580,1380](26580,210,0)ア...
+                        // line start: 26.58s
+                        // word start: 26.58s
+                        
+                        const wStart = word.time;
+                        const wEnd = wStart + word.duration;
+                        
+                        // Simple Karaoke Logic:
+                        let color = '#fff';
+                        let opacity = '0.3'; // Not yet played
+                        
+                        // YRC time is absolute song time in seconds
+                        if (time >= wEnd) {
+                             // Fully played
+                             color = '#4db6ac';
+                             opacity = '1';
+                        } else if (time >= wStart && time < wEnd) {
+                            // Currently playing
+                            color = '#4db6ac'; 
+                            opacity = '1';
+                        }
+                        
+                        karaokeHtml += `<span style="color: ${color}; opacity: ${opacity}; margin: 0 1px; transition: color 0.1s;">${word.text}</span>`;
+                    });
+                    
+                    karaokeHtml += '</div>';
+                    
+                    // Append translation
+                    if (activeLine.trText) {
+                        karaokeHtml += `<div style="font-size: 0.8em; color: #888; margin-top: 4px;">${activeLine.trText}</div>`;
+                    }
+                    
+                    lyricsEl.innerHTML = karaokeHtml;
+                    
+                } else {
+                    // Fallback to standard line display
+                    let html = `<div>${activeLine.text}</div>`;
+                    if (activeLine.trText) {
+                        html += `<div style="font-size: 0.8em; color: #888; margin-top: 4px;">${activeLine.trText}</div>`;
+                    }
+                    lyricsEl.innerHTML = html;
+                }
+            }
+        }
+
+        function parseYrc(yrc) {
+            // YRC format: [start,duration](word_start,word_duration,0)Word(next_word_start,next_word_duration,0)Word...
+            // e.g. [26580,1380](26580,210,0)ア(26790,70,0)ウ(26860,80,0)ト...
+            
+            if (!yrc) return [];
+            
+            try {
+                if (typeof yrc !== 'string') return [];
+                
+                const lines = yrc.split('\n');
+                const result = [];
+                
+                // Regex to capture line start time: [start,duration]
+                const lineExp = /^\[(\d+),(\d+)\]/;
+                // Regex to capture words: (start,duration,0)Text
+                const wordExp = /\((\d+),(\d+),(\d+)\)([^\(\)]+)/g;
+
+                for (const line of lines) {
+                    const match = lineExp.exec(line);
+                    if (match) {
+                        const startTimeMs = parseInt(match[1]);
+                        const time = startTimeMs / 1000;
+                        const durationMs = parseInt(match[2]);
+                        
+                        // Parse individual words for this line
+                        const words = [];
+                        let wordMatch;
+                        // Reset lastIndex for global regex
+                        wordExp.lastIndex = 0;
+                        
+                        // Extract plain text for fallback/full line display
+                        let fullText = "";
+                        
+                        while ((wordMatch = wordExp.exec(line)) !== null) {
+                            const wStart = parseInt(wordMatch[1]);
+                            const wDur = parseInt(wordMatch[2]);
+                            const wText = wordMatch[4];
+                            fullText += wText;
+                            
+                            words.push({
+                                time: wStart / 1000,
+                                duration: wDur / 1000,
+                                text: wText
+                            });
+                        }
+                        
+                        // Fallback if regex didn't catch words (some yrc might be malformed or simple)
+                        if (words.length === 0) {
+                             fullText = line.replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim();
+                        }
+
+                        if (fullText) {
+                            result.push({ 
+                                time, 
+                                duration: durationMs / 1000,
+                                text: fullText,
+                                words: words.length > 0 ? words : null
+                            });
+                        }
+                    }
+                }
+                return result;
+            } catch (e) {
+                console.error("YRC Parse Error", e);
+                return [];
+            }
+        }
+
+        function parseLrc(lrc) {
+            if (!lrc) return [];
+            const lines = lrc.split('\n');
+            const result = [];
+            const timeExp = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+            for (const line of lines) {
+                const match = timeExp.exec(line);
+                if (match) {
+                    const minutes = parseInt(match[1]);
+                    const seconds = parseInt(match[2]);
+                    const msStr = match[3];
+                    const ms = parseInt(msStr) * (msStr.length === 2 ? 10 : 1);
+                    const time = minutes * 60 + seconds + ms / 1000;
+                    const text = line.replace(timeExp, '').trim();
+                    if (text) {
+                        result.push({ time, text });
+                    }
+                }
+            }
+            return result;
+        }
+
+        function mergeLyrics(original, translation) {
+            if (!translation || translation.length === 0) return original;
+            
+            // Map translation by time (approximate matching might be needed but exact is standard for lrc)
+            // Use a small epsilon for time matching if needed, but usually they match exactly string-wise in lrc
+            // Let's index by time
+            const trMap = new Map();
+            translation.forEach(item => {
+                // Round to 2 decimal places to avoid float issues
+                const key = Math.floor(item.time * 100) / 100;
+                trMap.set(key, item.text);
+            });
+            
+            return original.map(item => {
+                // Round to 2 decimal places to avoid float issues
+                const key = Math.floor(item.time * 100) / 100;
+                
+                // Try direct match
+                let trText = trMap.get(key);
+                
+                // If no direct match, try searching for the closest translation within a small window (e.g., 0.5s)
+                // Because YRC time (start time) might slightly differ from LRC time
+                if (!trText) {
+                    let minDiff = 0.5; // 500ms window
+                    for (const [tKey, tText] of trMap.entries()) {
+                        const diff = Math.abs(tKey - key);
+                        if (diff < minDiff) {
+                            minDiff = diff;
+                            trText = tText;
+                        }
+                    }
+                }
+                
+                return {
+                    ...item,
+                    trText: trText || null
+                };
+            });
+        }
+
+    </script>
+</body>
+</html>
