@@ -11,7 +11,7 @@
 
 **Live Music** is a lightweight, high-performance "Now Playing" overlay for OBS Studio, specifically designed for Netease Cloud Music (PC Client). It captures real-time song information, lyrics, and playback progress with minimal system resource usage.
 
-![Preview]([https://via.placeholder.com/600x200?text=Live+Music+Preview](https://github.com/user-attachments/assets/11c5d899-09e3-49ac-8ce7-4446200b68ce))
+![Preview](https://github.com/user-attachments/assets/11c5d899-09e3-49ac-8ce7-4446200b68ce)
 
 ## ✨ 特性 (Features)
 
