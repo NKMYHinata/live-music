@@ -27,13 +27,18 @@
             width: 200px;
             height: 200px;
             margin: 0 auto 20px auto;
-            border-radius: 50%;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             background-color: #333;
             display: none;
+            transition: border-radius 0.3s ease;
+        }
+        
+        /* CD / Circle Style */
+        #cover-wrapper.circle {
+            border-radius: 50%;
             animation: rotate 20s linear infinite;
         }
-        #cover-wrapper::before {
+        #cover-wrapper.circle::before {
             content: '';
             position: absolute;
             top: 50%;
@@ -41,11 +46,11 @@
             transform: translate(-50%, -50%);
             width: 50px;
             height: 50px;
-            background-color: #e91e63;
+            background-color: var(--theme-color, #e91e63);
             border-radius: 50%;
-            z-index: 2;
+            z-index: 10;
         }
-        #cover-wrapper::after {
+        #cover-wrapper.circle::after {
             content: '';
             position: absolute;
             top: 50%;
@@ -55,18 +60,25 @@
             height: 20px;
             background-color: #ccc;
             border-radius: 50%;
-            z-index: 3;
+            z-index: 11;
         }
+
+        /* Rect Style */
+        #cover-wrapper.rect {
+            border-radius: 10px;
+        }
+
         @keyframes rotate {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
+
         #cover {
             width: 100%;
             height: 100%;
-            border-radius: 50%;
             object-fit: cover;
             display: block;
+            border-radius: inherit;
         }
         #title {
             font-size: 24px;
@@ -140,6 +152,47 @@
         const currentTimeEl = document.getElementById('current-time');
         const totalTimeEl = document.getElementById('total-time');
 
+        // Apply settings
+        function applySettings(settings) {
+            if (!settings) return;
+            
+            // Cover Style
+            coverWrapper.classList.remove('circle', 'rect');
+            if (settings.coverStyle === 'circle') {
+                coverWrapper.classList.add('circle');
+            } else {
+                coverWrapper.classList.add('rect');
+            }
+
+            // Colors
+            if (settings.themeColor) {
+                document.documentElement.style.setProperty('--theme-color', settings.themeColor);
+                progressBar.style.backgroundColor = settings.themeColor;
+            }
+            if (settings.bgColor) {
+                document.body.style.backgroundColor = settings.bgColor;
+            }
+        }
+
+        function loadSettings() {
+            try {
+                const settings = JSON.parse(localStorage.getItem('musicOverlaySettings'));
+                if (settings) applySettings(settings);
+            } catch (e) {
+                console.error("Failed to load settings", e);
+            }
+        }
+
+        // Initial load
+        loadSettings();
+
+        // Listen for storage changes (cross-tab sync)
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'musicOverlaySettings') {
+                loadSettings();
+            }
+        });
+
         let currentLyrics = [];
         let startTime = 0; 
         let isPlaying = false;
@@ -200,6 +253,9 @@
                     console.log('Standard Lyrics loaded:', currentLyrics.length, 'lines');
                 }
                 
+            } else if (msg.type === 'settings') {
+                localStorage.setItem('musicOverlaySettings', JSON.stringify(msg.data));
+                loadSettings();
             } else if (msg.type === 'media_status') {
                 // Only use media_status for connection status or title updates if needed
                 // Ignoring position/duration as requested
