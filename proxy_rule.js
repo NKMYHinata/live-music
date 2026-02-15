@@ -48,7 +48,7 @@ async function fetchSongDetails(id) {
 
 async function fetchLyrics(id) {
   try {
-    const url = `http://music.163.com/api/song/lyric?os=pc&id=${id}&lv=-1&kv=-1&tv=-1`;
+    const url = `http://music.163.com/api/song/lyric?os=pc&id=${id}&lv=-1&kv=-1&tv=-1&yv=-1`;
     console.log(`[Active Fetch] Lyrics: ${url}`);
     
     const headers = {};
@@ -59,10 +59,14 @@ async function fetchLyrics(id) {
     const res = await fetch(url, { headers });
     const data = await res.json();
     
-    if (data.lrc) {
-      console.log(`[Active Fetch] Lyrics Success`);
-      eventBus.emit('lyrics', data);
-    }
+        if (data.lrc) {
+          console.log(`[Active Fetch] Lyrics Success`);
+          // Mark as active fetch so index.js knows how to handle it? 
+          // Actually, index.js listens to 'lyrics' event.
+          // We can attach songId to the data to make it easier for index.js to match
+          data.songId = id; 
+          eventBus.emit('lyrics', data);
+        }
   } catch (e) {
     console.error('[Active Fetch] Lyric Error:', e.message);
   }
@@ -147,7 +151,21 @@ module.exports = {
           // console.error('JSON Parse error', e);
         }
       }
+    } 
+    // Handle non-EAPI lyric requests (e.g., from web API) which might return JSON directly
+    else if (url.includes('/api/song/lyric')) {
+        try {
+            const body = newResponse.body.toString();
+            const data = JSON.parse(body);
+            if (data.lrc) {
+                console.log('[Lyric] Captured from Web API');
+                eventBus.emit('lyrics', data);
+            }
+        } catch (e) {
+             console.error('[Lyric] Web API Parse Error:', e.message);
+        }
     }
+
     return null;
   }
 };

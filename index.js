@@ -6,6 +6,12 @@ const { spawn } = require('child_process');
 
 // --- Setup Certificates Path BEFORE importing AnyProxy ---
 const localHome = path.join(__dirname, 'local_home');
+
+// Ensure local_home exists
+if (!fs.existsSync(localHome)) {
+  fs.mkdirSync(localHome);
+}
+
 process.env.USERPROFILE = localHome;
 process.env.HOME = localHome;
 
@@ -23,9 +29,10 @@ const proxyRule = require('./proxy_rule');
 let currentSong = null;
 let lastWindowTitle = "";
 
-// Queue for pending songs: { songData: object, lyricsData: object, timestamp: number }
+// Queue for pending songs: { id: number, name: string, artist: string, songData: object, timestamp: number }
 let pendingQueue = [];
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const MAX_CACHE_SIZE = 3000;
 
 // --- Start Proxy Server ---
 const options = {
@@ -96,11 +103,30 @@ const wss = new WebSocket.Server({ server });
 wss.on('connection', (ws) => {
   console.log('Frontend connected');
   ws.send(JSON.stringify({ type: 'welcome', message: 'Connected to Now Playing Next' }));
+
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message);
+      if (data.type === 'windowTitle') {
+        lastWindowTitle = data.data;
+        checkTransition();
+      }
+    } catch (e) {
+      console.error('WS Message Error:', e);
+    }
+  });
+
   // Send current song if available
   if (currentSong) {
     ws.send(JSON.stringify({ type: 'song', data: currentSong.songData }));
+    
+    // We don't store lyricsData in pendingQueue anymore, but if we wanted to support late-joiners seeing lyrics
+    // we would need to store the last fetched lyrics in 'currentSong' object in memory.
     if (currentSong.lyricsData) {
         ws.send(JSON.stringify({ type: 'lyrics', data: currentSong.lyricsData }));
+    } else {
+        // Optionally trigger a fetch for the new client?
+        fetchLyrics(currentSong.id);
     }
   }
 });
@@ -114,6 +140,32 @@ function broadcast(type, data) {
   });
 }
 
+function fetchLyrics(songId) {
+    const url = `http://music.163.com/api/song/lyric?os=pc&id=${songId}&lv=-1&kv=-1&tv=-1&yv=-1`;
+    console.log(`[Lyrics] Fetching for ID: ${songId}`);
+    
+    http.get(url, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+            try {
+                const json = JSON.parse(data);
+                
+                // Cache lyrics in currentSong so new clients can get it
+                if (currentSong && currentSong.id === songId) {
+                    currentSong.lyricsData = json;
+                }
+                
+                broadcast('lyrics', json);
+            } catch (e) {
+                console.error('[Lyrics] Parse error:', e);
+            }
+        });
+    }).on('error', (err) => {
+        console.error('[Lyrics] Request error:', err);
+    });
+}
+
 // --- Wire up Events with Transition Logic ---
 
 proxyRule.eventBus.on('song', (data) => {
@@ -125,19 +177,27 @@ proxyRule.eventBus.on('song', (data) => {
     console.log(`[Proxy] New song cached: ${songName} - ${artistName} (ID: ${songId})`);
     
     // Add to queue or update existing entry
-    const existingIndex = pendingQueue.findIndex(item => item.songData.songs[0].id === songId);
+    const existingIndex = pendingQueue.findIndex(item => item.id === songId);
     
     if (existingIndex !== -1) {
         // Update existing
         pendingQueue[existingIndex].songData = data;
         pendingQueue[existingIndex].timestamp = Date.now();
+        // Keep existing lyrics if any, unless we want to force refresh?
+        // We do NOT want to overwrite lyricsData with null if it already exists
+        // pendingQueue[existingIndex].lyricsData = null; 
+        console.log(`[Cache Update] Updated existing song: ${songName}`);
     } else {
         // Add new
         pendingQueue.push({
-            songData: data,
-            lyricsData: null,
+            id: songId,
+            name: songName,
+            artist: artistName,
+            songData: data, 
+            lyricsData: null, // Initialize lyrics as null
             timestamp: Date.now()
         });
+        console.log(`[Cache Add] Added new song: ${songName}`);
     }
     
     // Clean up old cache
@@ -149,89 +209,67 @@ proxyRule.eventBus.on('song', (data) => {
 });
 
 proxyRule.eventBus.on('lyrics', (data) => {
-    // We need to associate lyrics with a song. 
-    // Since lyrics API usually doesn't return Song ID in body, we assume it belongs to the most recently added song in queue
-    // OR we can try to match if we have active fetch context.
-    // For now, let's attach it to the latest item in queue if it doesn't have lyrics yet.
-    
-    if (pendingQueue.length > 0) {
-        const latest = pendingQueue[pendingQueue.length - 1];
-        // Only update if empty or newer?
-        latest.lyricsData = data;
-        console.log(`[Proxy] Lyrics attached to cached song: ${latest.songData.songs[0].name}`);
-    } else {
-        // Fallback: Direct broadcast if queue is empty (maybe manual seek?)
-        broadcast('lyrics', data);
+    if (data.songId) {
+        // If we have an explicit ID (from Active Fetch), try to match it with queue
+        const item = pendingQueue.find(i => i.id === data.songId);
+        if (item) {
+            item.lyricsData = data;
+            console.log(`[Proxy] Lyrics attached to cached song: ${item.name}`);
+            
+            // If this is also the current song, update it immediately
+            if (currentSong && currentSong.id === data.songId) {
+                currentSong.lyricsData = data;
+                broadcast('lyrics', data);
+            }
+        }
     }
 });
 
-proxyRule.eventBus.on('player_url', (data) => {
-    broadcast('player_url', data);
-});
-
-proxyRule.eventBus.on('progress', (data) => broadcast('progress', data));
-
-
-// --- Window Title Watcher ---
-const ps = spawn('powershell', ['-ExecutionPolicy', 'Bypass', '-File', 'get_title.ps1']);
-
-ps.stdout.on('data', (data) => {
-  const title = data.toString().trim();
-  if (title && title !== lastWindowTitle) {
-    console.log(`[Window Title] Changed to: ${title}`);
-    lastWindowTitle = title;
-    checkTransition();
-  }
-});
-
-ps.stderr.on('data', (data) => {
-  // console.error(`[PS Error] ${data}`);
-});
+// ...
 
 function cleanupQueue() {
-    const now = Date.now();
-    pendingQueue = pendingQueue.filter(item => (now - item.timestamp) < CACHE_TTL);
+    // 1. Trim by size
+    if (pendingQueue.length > MAX_CACHE_SIZE) {
+        // Remove oldest
+        const removeCount = pendingQueue.length - MAX_CACHE_SIZE;
+        pendingQueue.splice(0, removeCount);
+    }
+    // 2. We removed TTL logic as requested, just keeping size limit
 }
+
+// ...
 
 function checkTransition() {
   // Find a matching song in the queue
-  // Prioritize NEWEST songs first (reverse search) because window title usually reflects the latest intent
-  // Also, window title format is typically "Song Name - Artist"
   
   let matchIndex = -1;
+  const currentTitle = lastWindowTitle; 
   
   // Search from end (newest) to start (oldest)
   for (let i = pendingQueue.length - 1; i >= 0; i--) {
       const item = pendingQueue[i];
-      const songName = item.songData.songs[0].name;
-      const artistName = item.songData.songs[0].artists && item.songData.songs[0].artists[0] ? item.songData.songs[0].artists[0].name : "";
+      // Use cached basic info for matching
+      const songName = item.name;
+      const artistName = item.artist;
       
-      // Strict matching logic:
-      // 1. Title must contain Song Name
-      // 2. Title SHOULD contain Artist Name (if available, to disambiguate same song names)
-      
-      if (lastWindowTitle.includes(songName)) {
-          if (artistName && lastWindowTitle.includes(artistName)) {
-              // High confidence match
+      // Strict matching logic
+      if (currentTitle.includes(songName)) {
+          if (artistName && currentTitle.includes(artistName)) {
               matchIndex = i;
               break; 
           } else if (!artistName) {
-              // If we don't know the artist, song name match is the best we can do
               matchIndex = i;
               break;
           }
-           // If artist name exists but is NOT in title, it might be a cover or different version. 
-           // Continue searching but maybe mark this as a low-confidence candidate?
-           // For now, let's be strict: if artist is known, it must be in title.
       }
   }
   
-  // Fallback: If strict match failed, try relaxed match (just song name)
+  // Fallback
   if (matchIndex === -1) {
       for (let i = pendingQueue.length - 1; i >= 0; i--) {
           const item = pendingQueue[i];
-          const songName = item.songData.songs[0].name;
-          if (lastWindowTitle.includes(songName)) {
+          const songName = item.name;
+          if (currentTitle.includes(songName)) {
               matchIndex = i;
               break;
           }
@@ -240,29 +278,54 @@ function checkTransition() {
 
   if (matchIndex !== -1) {
       const matchedItem = pendingQueue[matchIndex];
-      const songName = matchedItem.songData.songs[0].name;
-      const songId = matchedItem.songData.songs[0].id;
+      const songName = matchedItem.name;
+      const songId = matchedItem.id;
 
       // Check if it's really a switch (different ID) or just a re-confirmation
-      if (!currentSong || currentSong.songData.songs[0].id !== songId) {
+      if (!currentSong || currentSong.id !== songId) {
           console.log(`[Transition] Confirmed match! Switching to: ${songName} (ID: ${songId})`);
           
           currentSong = matchedItem;
+          
+          // Broadcast song info immediately so frontend can start timer
+          // Even if fetch is pending, this sets the 'startTime'
           broadcast('song', currentSong.songData);
           
+          // Check if we already have lyrics in cache
           if (currentSong.lyricsData) {
-            broadcast('lyrics', currentSong.lyricsData);
+              console.log(`[Transition] Using cached lyrics for: ${songName}`);
+              broadcast('lyrics', currentSong.lyricsData);
+          } else {
+              // Always fetch new lyrics on transition if missing
+              fetchLyrics(songId);
           }
           
           // Update timestamp to keep it fresh
           matchedItem.timestamp = Date.now();
-      } else {
-          // Same song, do nothing
-      }
-  } else {
-      // console.log(`[Transition] No match found in queue for title: "${lastWindowTitle}"`);
-  }
+      } 
+  } 
 }
+
+const ps = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'get_title.ps1']);
+
+ps.stdout.on('data', (data) => {
+  // Split by newline to handle multiple outputs
+  const output = data.toString();
+  const lines = output.split(/\r?\n/);
+  
+  lines.forEach(line => {
+      const title = line.trim();
+      if (title && title !== lastWindowTitle) {
+        console.log(`[Window Title] Changed to: ${title}`);
+        lastWindowTitle = title;
+        checkTransition();
+      }
+  });
+});
+
+ps.stderr.on('data', (data) => {
+   console.error(`[PS Error] ${data}`);
+});
 
 server.listen(UI_PORT, () => {
   console.log(`UI Server listening on port ${UI_PORT}`);
