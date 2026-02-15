@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Overlay Settings</title>
+    <style>
+        :root {
+            --primary: #e91e63;
+            --primary-dark: #c2185b;
+            --bg-dark: #1a1a1a;
+            --bg-panel: #2d2d2d;
+            --text-main: #fff;
+            --text-muted: #aaa;
+            --border: #444;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+            margin: 0;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: var(--bg-panel);
+            padding: 40px;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        h1 {
+            text-align: center;
+            margin: 0 0 40px 0;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+        .section {
+            margin-bottom: 35px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 35px;
+        }
+        .section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 0;
+        }
+        .section-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 500;
+            font-size: 16px;
+        }
+        
+        /* Custom Radio/Checkbox Styles */
+        .option-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .option-card {
+            background: #363636;
+            border: 2px solid transparent;
+            padding: 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .option-card:hover {
+            background: #404040;
+        }
+        .option-card.selected {
+            background: rgba(233, 30, 99, 0.1);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .option-card input {
+            display: none;
+        }
+        
+        /* Toggles */
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 24px;
+        }
+        .toggle-switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #555;
+            transition: .3s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: var(--primary);
+        }
+        input:checked + .slider:before {
+            transform: translateX(22px);
+        }
+
+        /* Color Inputs */
+        .color-picker-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            cursor: pointer;
+            padding: 0;
+            background: none;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 10px;
+            border: 2px solid #555;
+        }
+        
+        .disabled {
+            opacity: 0.4;
+            pointer-events: none;
+            filter: grayscale(1);
+        }
+        
+        .info-text {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        .preview-footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 13px;
+            color: #666;
+            padding-top: 20px;
+            border-top: 1px dashed #444;
+        }
+
+        select {
+            background-color: #363636;
+            color: white;
+            border: 1px solid #555;
+            padding: 8px 12px;
+            border-radius: 8px;
+            width: 100%;
+            font-size: 14px;
+            margin-top: 5px;
+            outline: none;
+        }
+        select:focus {
+            border-color: var(--primary);
+        }
+
+        /* Swatches */
+        .swatch-list {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .swatch {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #555;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .swatch:hover {
+            transform: scale(1.1);
+        }
+        .swatch.active {
+            border-color: #fff;
+            transform: scale(1.1);
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+        
+        .custom-picker-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: 2px solid #555;
+            position: relative;
+            overflow: hidden;
+        }
+        .custom-picker-btn input[type="color"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        .custom-picker-btn span {
+            font-size: 20px;
+            color: #aaa;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Overlay Settings</h1>
+        
+        <!-- Style Section -->
+        <div class="section">
+            <div class="section-title">Appearance</div>
+            
+            <div class="form-group">
+                <label>Layout Style</label>
+                <div class="option-grid">
+                    <label class="option-card">
+                        <input type="radio" name="layoutStyle" value="boxed">
+                        <span>Boxed (Vertical)</span>
+                    </label>
+                    <label class="option-card">
+                        <input type="radio" name="layoutStyle" value="bar">
+                        <span>Bar (Horizontal)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Cover Shape</label>
+                <div class="option-grid">
+                    <label class="option-card">
+                        <input type="radio" name="coverStyle" value="rect">
+                        <span>Rounded Rect</span>
+                    </label>
+                    <label class="option-card">
+                        <input type="radio" name="coverStyle" value="circle">
+                        <span>Circle (Vinyl)</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Color Section -->
+        <div class="section">
+            <div class="section-title">Colors & Theme</div>
+            
+            <div class="form-group">
+                <label>Color Mode</label>
+                <select id="colorMode">
+                    <option value="light">Light (Vibrant)</option>
+                    <option value="dark">Dark (Deep)</option>
+                    <option value="system">System (Balanced)</option>
+                </select>
+                <div class="info-text">Determines how auto-colors are generated from the cover art.</div>
+            </div>
+
+            <!-- Background Color -->
+            <div class="form-group">
+                <div class="toggle-row">
+                    <div>
+                        <label style="margin:0">Auto Background</label>
+                        <div class="info-text">Extracts dominant color from cover</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoBgColor">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div id="customBgColorGroup" class="color-picker-row">
+                    <div class="swatch-list" id="bgSwatches">
+                        <!-- Swatches populated by JS -->
+                    </div>
+                    <div class="custom-picker-btn" title="Pick Custom Color">
+                        <span>+</span>
+                        <input type="color" id="bgColor" value="#1a1a1a">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Theme Color -->
+            <div class="form-group" style="margin-top: 20px;">
+                <div class="toggle-row">
+                    <div>
+                        <label style="margin:0">Auto Text Color</label>
+                        <div class="info-text">Matches cover art palette</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoThemeColor">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div id="customThemeColorGroup" class="color-picker-row">
+                    <div class="swatch-list" id="themeSwatches">
+                         <!-- Swatches populated by JS -->
+                    </div>
+                    <div class="custom-picker-btn" title="Pick Custom Color">
+                        <span>+</span>
+                        <input type="color" id="themeColor" value="#e91e63">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="preview-footer">
+            Changes are saved automatically and applied in real-time.
+        </div>
+    </div>
+    
+    <!-- Hidden Canvas for Color Extraction -->
+    <canvas id="analysisCanvas" width="50" height="50" style="display:none;"></canvas>
+    <img id="tempCover" style="display:none;" crossorigin="Anonymous">
+
+    <script>
+        const ws = new WebSocket(`ws://${location.host}`);
+        
+        const els = {
+            layoutStyle: document.getElementsByName('layoutStyle'),
+            coverStyle: document.getElementsByName('coverStyle'),
+            colorMode: document.getElementById('colorMode'),
+            autoBgColor: document.getElementById('autoBgColor'),
+            autoThemeColor: document.getElementById('autoThemeColor'),
+            bgColor: document.getElementById('bgColor'),
+            themeColor: document.getElementById('themeColor'),
+            customBgColorGroup: document.getElementById('customBgColorGroup'),
+            customThemeColorGroup: document.getElementById('customThemeColorGroup'),
+            bgSwatches: document.getElementById('bgSwatches'),
+            themeSwatches: document.getElementById('themeSwatches'),
+            tempCover: document.getElementById('tempCover')
+        };
+        
+        let currentCoverColors = [];
+
+        // Load settings
+        function loadSettings() {
+            const settings = JSON.parse(localStorage.getItem('musicOverlaySettings')) || {
+                layout: 'boxed',
+                coverStyle: 'rect',
+                colorMode: 'light',
+                autoBgColor: false,
+                autoThemeColor: false,
+                bgColor: '#1a1a1a',
+                themeColor: '#e91e63'
+            };
+
+            // Set Layout Radio
+            for (const radio of els.layoutStyle) {
+                if (radio.value === (settings.layout || 'boxed')) {
+                    radio.checked = true;
+                    updateCardSelection(radio);
+                }
+            }
+
+            // Set Cover Radio
+            for (const radio of els.coverStyle) {
+                if (radio.value === settings.coverStyle) {
+                    radio.checked = true;
+                    updateCardSelection(radio);
+                }
+            }
+            
+            // Set Color Mode
+            els.colorMode.value = settings.colorMode || 'light';
+
+            // Set Checkbox
+            if (settings.autoColor !== undefined) {
+                els.autoBgColor.checked = settings.autoColor;
+                els.autoThemeColor.checked = settings.autoColor;
+            } else {
+                els.autoBgColor.checked = settings.autoBgColor;
+                els.autoThemeColor.checked = settings.autoThemeColor;
+            }
+
+            // Set Colors
+            els.bgColor.value = settings.bgColor;
+            els.themeColor.value = settings.themeColor;
+
+            updateUI();
+        }
+
+        function updateCardSelection(radioInput) {
+            const card = radioInput.closest('.option-card');
+            const name = radioInput.name;
+            document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
+                input.closest('.option-card').classList.remove('selected');
+            });
+            card.classList.add('selected');
+        }
+
+        function updateUI() {
+            if (els.autoBgColor.checked) {
+                els.customBgColorGroup.classList.add('disabled');
+            } else {
+                els.customBgColorGroup.classList.remove('disabled');
+            }
+
+            if (els.autoThemeColor.checked) {
+                els.customThemeColorGroup.classList.add('disabled');
+            } else {
+                els.customThemeColorGroup.classList.remove('disabled');
+            }
+        }
+
+        function saveSettings() {
+            let selectedLayout = 'boxed';
+            for (const radio of els.layoutStyle) {
+                if (radio.checked) selectedLayout = radio.value;
+            }
+
+            let selectedStyle = 'rect';
+            for (const radio of els.coverStyle) {
+                if (radio.checked) selectedStyle = radio.value;
+            }
+
+            const settings = {
+                layout: selectedLayout,
+                coverStyle: selectedStyle,
+                colorMode: els.colorMode.value,
+                autoBgColor: els.autoBgColor.checked,
+                autoThemeColor: els.autoThemeColor.checked,
+                bgColor: els.bgColor.value,
+                themeColor: els.themeColor.value
+            };
+
+            localStorage.setItem('musicOverlaySettings', JSON.stringify(settings));
+            
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: 'musicOverlaySettings',
+                newValue: JSON.stringify(settings)
+            }));
+
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'settings', data: settings }));
+            }
+        }
+
+        // WebSocket for Settings Sync
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'song') {
+                const song = msg.data.songs ? msg.data.songs[0] : null;
+                if (song && song.album.picUrl) {
+                    els.tempCover.src = song.album.picUrl;
+                }
+            } else if (msg.type === 'settings') {
+                localStorage.setItem('musicOverlaySettings', JSON.stringify(msg.data));
+                loadSettings();
+            }
+        };
+
+        els.tempCover.onload = function() {
+            try {
+                currentCoverColors = getDominantColors(this);
+                renderSwatches();
+            } catch(e) { console.error(e); }
+        };
+
+        function getDominantColors(img) {
+            const canvas = document.getElementById('analysisCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, 50, 50);
+            
+            const imageData = ctx.getImageData(0, 0, 50, 50).data;
+            const colorCounts = {};
+            
+            for (let i = 0; i < imageData.length; i += 4) {
+                const r = imageData[i];
+                const g = imageData[i+1];
+                const b = imageData[i+2];
+                const a = imageData[i+3];
+                if (a < 128) continue;
+                const qr = Math.floor(r / 32) * 32;
+                const qg = Math.floor(g / 32) * 32;
+                const qb = Math.floor(b / 32) * 32;
+                const key = `${qr},${qg},${qb}`;
+                colorCounts[key] = (colorCounts[key] || 0) + 1;
+            }
+
+            const sortedColors = Object.keys(colorCounts).sort((a, b) => colorCounts[b] - colorCounts[a]);
+            return sortedColors.slice(0, 5).map(c => {
+                const [r, g, b] = c.split(',').map(Number);
+                return `rgb(${r},${g},${b})`;
+            });
+        }
+        
+        function rgbToHex(rgb) {
+             // Convert rgb(r, g, b) to #rrggbb
+             const sep = rgb.indexOf(",") > -1 ? "," : " ";
+             const rgbArr = rgb.substr(4).split(")")[0].split(sep);
+             
+             let r = (+rgbArr[0]).toString(16),
+                 g = (+rgbArr[1]).toString(16),
+                 b = (+rgbArr[2]).toString(16);
+           
+             if (r.length == 1) r = "0" + r;
+             if (g.length == 1) g = "0" + g;
+             if (b.length == 1) b = "0" + b;
+           
+             return "#" + r + g + b;
+        }
+
+        function renderSwatches() {
+            // Render BG Swatches
+            els.bgSwatches.innerHTML = '';
+            currentCoverColors.forEach(color => {
+                const hex = rgbToHex(color);
+                const swatch = document.createElement('div');
+                swatch.className = 'swatch';
+                swatch.style.backgroundColor = color;
+                swatch.onclick = () => {
+                    els.bgColor.value = hex;
+                    saveSettings();
+                };
+                els.bgSwatches.appendChild(swatch);
+            });
+
+            // Render Theme Swatches
+            els.themeSwatches.innerHTML = '';
+            currentCoverColors.forEach(color => {
+                const hex = rgbToHex(color);
+                const swatch = document.createElement('div');
+                swatch.className = 'swatch';
+                swatch.style.backgroundColor = color;
+                swatch.onclick = () => {
+                    els.themeColor.value = hex;
+                    saveSettings();
+                };
+                els.themeSwatches.appendChild(swatch);
+            });
+        }
+
+        // Listeners
+        ['change', 'input'].forEach(evt => {
+            els.layoutStyle.forEach(el => el.addEventListener(evt, (e) => {
+                updateCardSelection(e.target);
+                saveSettings();
+            }));
+            els.coverStyle.forEach(el => el.addEventListener(evt, (e) => {
+                updateCardSelection(e.target);
+                saveSettings();
+            }));
+            
+            els.colorMode.addEventListener(evt, saveSettings);
+            
+            els.autoBgColor.addEventListener(evt, () => {
+                updateUI();
+                saveSettings();
+            });
+            els.autoThemeColor.addEventListener(evt, () => {
+                updateUI();
+                saveSettings();
+            });
+            els.bgColor.addEventListener(evt, saveSettings);
+            els.themeColor.addEventListener(evt, saveSettings);
+        });
+
+        // Init
+        loadSettings();
+    </script>
+</body>
+</html>

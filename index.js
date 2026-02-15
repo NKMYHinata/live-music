@@ -92,6 +92,26 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(data);
     });
+  } else if (req.url === '/settings.html') {
+    fs.readFile(path.join(__dirname, 'public', 'settings.html'), (err, data) => {
+      if (err) {
+        res.writeHead(500);
+        res.end('Error loading settings.html');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(data);
+    });
+  } else if (req.url === '/info.html') {
+    fs.readFile(path.join(__dirname, 'public', 'info.html'), (err, data) => {
+      if (err) {
+        res.writeHead(500);
+        res.end('Error loading info.html');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(data);
+    });
   } else {
     res.writeHead(404);
     res.end('Not Found');
@@ -110,6 +130,9 @@ wss.on('connection', (ws) => {
       if (data.type === 'windowTitle') {
         lastWindowTitle = data.data;
         checkTransition();
+      } else if (data.type === 'settings') {
+        // Broadcast settings update to all other clients
+        broadcast('settings', data.data);
       }
     } catch (e) {
       console.error('WS Message Error:', e);

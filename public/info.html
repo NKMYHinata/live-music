@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Now Playing Info</title>
+    <style>
+        :root {
+            --bg-color: #f5f5f5;
+            --theme-color: #000;
+            --radius-large: 20px;
+            --radius-small: 12px;
+            --shadow-soft: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        body {
+            background-color: transparent;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        /* --- Common Components --- */
+        .cover-img {
+            object-fit: cover;
+            background-color: #ddd;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: border-radius 0.3s ease;
+        }
+        
+        .rotating {
+            animation: spin 20s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .text-box, .info-group {
+            overflow: hidden; /* Ensure overflow is hidden for marquee */
+            position: relative;
+        }
+
+        .title-wrapper {
+            overflow: hidden;
+            white-space: nowrap;
+            width: 100%;
+            position: relative;
+        }
+
+        .title {
+            font-size: 34px;
+            font-weight: 700;
+            color: var(--theme-color);
+            margin: 0 0 6px 0;
+            white-space: nowrap;
+            /* Remove text-overflow ellipsis as we handle scrolling */
+            /* overflow: hidden; */ 
+            /* text-overflow: ellipsis; */
+            line-height: 1.2;
+            display: inline-block; /* Required for transform */
+        }
+
+        .artist {
+            font-size: 22px;
+            color: var(--theme-color);
+            opacity: 0.7;
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 500;
+        }
+
+        /* --- Progress Bar --- */
+        .progress-track {
+            background-color: rgba(0,0,0,0.05); /* Very subtle track */
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            /* Gradient Trail Effect: Slower fade in */
+            background: linear-gradient(90deg, transparent 0%, var(--theme-color) 40%, var(--theme-color) 100%);
+            width: 0%;
+            border-radius: 4px;
+            position: relative;
+            transition: width 0.1s linear; /* Keep quick updates for responsiveness, JS handles steps */
+        }
+
+        /* --- Layout 1: Boxed Style --- */
+        .layout-boxed {
+            display: flex;
+            flex-direction: row;
+            background-color: var(--bg-color);
+            padding: 25px; /* Reduced padding */
+            border-radius: var(--radius-large);
+            gap: 25px; /* Reduced gap */
+            width: 850px; /* Keep Width */
+            box-shadow: var(--shadow-soft);
+            align-items: stretch; 
+        }
+
+        .layout-boxed .cover-section {
+            flex-shrink: 0;
+            display: flex;
+        }
+
+        .layout-boxed .cover-img {
+            width: 180px; /* Reduced Size */
+            height: 180px;
+            border-radius: var(--radius-small);
+        }
+        
+        .layout-boxed.shape-circle .cover-img {
+            border-radius: 50%;
+        }
+
+        .layout-boxed .info-section {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-width: 0;
+            height: 180px; /* Match cover height */
+            box-sizing: border-box;
+            padding: 20px 0; /* Increased padding to center content visually */
+        }
+
+        .layout-boxed .text-box {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        
+        .layout-boxed .title {
+            font-size: 34px; /* Adjusted for new height */
+            margin-bottom: 6px;
+            line-height: 1.1;
+        }
+        
+        .layout-boxed .artist {
+            font-size: 22px; /* Adjusted for new height */
+        }
+
+        .layout-boxed .progress-box {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .layout-boxed .time-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px; /* Adjusted for new height */
+            font-weight: 700;
+            color: var(--theme-color);
+            opacity: 0.9;
+        }
+        
+        .layout-boxed .progress-track {
+            height: 10px; /* Thicker */
+        }
+
+        /* --- Layout 2: Bar Style --- */
+        .layout-bar {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            background-color: var(--bg-color);
+            padding: 0;
+            border-radius: 100px;
+            width: 850px; /* Increased Width */
+            height: 150px; /* Increased Height */
+            box-shadow: var(--shadow-soft);
+            position: relative;
+            box-sizing: border-box;
+            overflow: hidden;
+            transition: padding 0.3s ease;
+        }
+
+        /* Rect Shape specific */
+        .layout-bar.shape-rect {
+            padding-left: 25px; 
+        }
+
+        .layout-bar.shape-rect .cover-img {
+            width: 120px; /* Increased */
+            height: 120px;
+            border-radius: var(--radius-small);
+            margin-right: 30px;
+            flex-shrink: 0;
+            object-fit: cover;
+            margin-left: 0;
+            transition: all 0.3s ease;
+        }
+
+        /* Circle Shape specific */
+        .layout-bar.shape-circle {
+             padding-left: 0; 
+        }
+
+        .layout-bar.shape-circle .cover-img {
+            width: 150px; /* Match container height */
+            height: 150px;
+            border-radius: 50%;
+            margin-right: 30px;
+            margin-left: 0;
+            flex-shrink: 0;
+        }
+        
+        .layout-bar .info-group {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            flex-grow: 1;
+            min-width: 0;
+            margin-right: 30px;
+        }
+        
+        .layout-bar .title {
+            font-size: 34px; /* Larger */
+            line-height: 1.2; /* Increased line height to avoid clipping */
+            margin-bottom: 8px; /* Add margin to separate from artist */
+            padding-top: 4px; /* Avoid top clipping */
+        }
+        
+        .layout-bar .artist {
+            font-size: 24px; /* Larger */
+            margin-top: 0; /* Handled by title margin */
+        }
+        
+        .layout-bar .separator {
+            width: 1px;
+            height: 60px;
+            background-color: var(--theme-color);
+            opacity: 0.2;
+            margin-right: 25px;
+        }
+
+        .layout-bar .progress-group {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            width: 220px;
+            flex-shrink: 0;
+            gap: 8px;
+            margin-right: 30px; /* Add margin right for visual balance */
+        }
+        
+        .layout-bar .time-row {
+             font-size: 24px; /* Larger: was 20px */
+             font-weight: 800; /* Bolder */
+             display: flex;
+             justify-content: space-between;
+             color: var(--theme-color);
+             opacity: 0.9; /* More visible */
+        }
+        
+        .layout-bar .progress-track {
+            width: 100%;
+            height: 10px; /* Thicker: was 6px */
+            background-color: rgba(0,0,0,0.08); /* Slightly darker track */
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Utility to hide/show based on active layout */
+        .hidden {
+            display: none !important;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Layout 1: Boxed -->
+    <div id="layout-boxed" class="layout-boxed hidden">
+        <div class="cover-section">
+            <img class="cover-img" src="" crossorigin="Anonymous">
+        </div>
+        <div class="info-section">
+            <div class="text-box">
+                <div class="title-wrapper"><div class="title">Waiting...</div></div>
+                <div class="artist">Artist</div>
+            </div>
+            <div class="progress-box">
+                <div class="time-row">
+                    <span class="current-time">00:00</span>
+                    <span class="total-time">00:00</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Layout 2: Bar -->
+    <div id="layout-bar" class="layout-bar hidden">
+        <img class="cover-img" src="" crossorigin="Anonymous">
+        <div class="info-group">
+            <div class="title-wrapper"><div class="title">Waiting...</div></div>
+            <div class="artist">Artist</div>
+        </div>
+        <div class="separator"></div>
+        <div class="progress-group">
+            <div class="time-row">
+                <span class="current-time">00:00</span>
+                <span class="total-time">00:00</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket(`ws://${location.host}`);
+        
+        // State
+        let currentLayout = 'boxed'; // 'boxed' or 'bar'
+        let coverShape = 'rect'; // 'rect' or 'circle'
+        let appSettings = {
+            layout: 'boxed',
+            coverStyle: 'rect', 
+            colorMode: 'light', // Default
+            autoBgColor: false,
+            autoThemeColor: false,
+            bgColor: '#f5f5f5',
+            themeColor: '#000'
+        };
+        
+        let isPlaying = false;
+        let startTime = 0;
+        let songDuration = 0;
+
+        // Elements
+        const layoutBoxed = document.getElementById('layout-boxed');
+        const layoutBar = document.getElementById('layout-bar');
+        
+        // Helper to update both layouts at once
+        function updateElements(selector, action) {
+            document.querySelectorAll(selector).forEach(action);
+        }
+
+        // --- Settings Logic ---
+        function loadSettings() {
+            const stored = localStorage.getItem('musicOverlaySettings');
+            if (stored) {
+                appSettings = JSON.parse(stored);
+                applySettings();
+            } else {
+                // Defaults
+                applySettings();
+            }
+        }
+
+        function applySettings() {
+            // 1. Layout
+            currentLayout = appSettings.layout || 'boxed';
+            if (currentLayout === 'boxed') {
+                layoutBoxed.classList.remove('hidden');
+                layoutBar.classList.add('hidden');
+            } else {
+                layoutBoxed.classList.add('hidden');
+                layoutBar.classList.remove('hidden');
+            }
+
+            // 2. Cover Shape
+            coverShape = appSettings.coverStyle || 'rect';
+            layoutBoxed.classList.remove('shape-rect', 'shape-circle');
+            layoutBar.classList.remove('shape-rect', 'shape-circle');
+            
+            layoutBoxed.classList.add(`shape-${coverShape}`);
+            layoutBar.classList.add(`shape-${coverShape}`);
+            
+            // Handle Rotation
+            updateRotation();
+
+            // 3. Colors
+            // Apply BG Color
+            if (appSettings.autoBgColor && !appSettings.autoThemeColor) {
+                 // BG Auto, Theme Manual
+                 // We need to re-analyze to get BG only? 
+                 // analyzeAndApplyColors handles both based on args, let's update it or just set manual theme here
+                 document.documentElement.style.setProperty('--theme-color', appSettings.themeColor);
+            } else if (!appSettings.autoBgColor && appSettings.autoThemeColor) {
+                 // BG Manual, Theme Auto
+                 document.documentElement.style.setProperty('--bg-color', appSettings.bgColor);
+            } else if (!appSettings.autoBgColor && !appSettings.autoThemeColor) {
+                 // Both Manual
+                 document.documentElement.style.setProperty('--bg-color', appSettings.bgColor);
+                 document.documentElement.style.setProperty('--theme-color', appSettings.themeColor);
+            }
+            
+            // If ANY auto color is needed, trigger analysis
+            if (appSettings.autoBgColor || appSettings.autoThemeColor) {
+                const activeImg = currentLayout === 'boxed' 
+                    ? layoutBoxed.querySelector('.cover-img') 
+                    : layoutBar.querySelector('.cover-img');
+                
+                if (activeImg && activeImg.src && activeImg.complete) {
+                    analyzeAndApplyColors(activeImg);
+                }
+            }
+        }
+        
+        function updateRotation() {
+            const activeImg = currentLayout === 'boxed' 
+                ? layoutBoxed.querySelector('.cover-img') 
+                : layoutBar.querySelector('.cover-img');
+            
+            // Remove from all first
+            document.querySelectorAll('.cover-img').forEach(img => img.classList.remove('rotating'));
+
+            if (coverShape === 'circle' && isPlaying) {
+                if(activeImg) activeImg.classList.add('rotating');
+            }
+        }
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'musicOverlaySettings') {
+                loadSettings();
+            }
+        });
+
+        // --- WebSocket ---
+        ws.onopen = () => {
+            console.log('Connected');
+            loadSettings();
+        };
+
+        function updateText(title, artist) {
+            // Helper to update text content and handle marquee
+            document.querySelectorAll('.title').forEach(el => {
+                el.textContent = title;
+                el.style.transform = 'none'; // Reset transform
+                
+                // Marquee Logic
+                const container = el.parentElement;
+                if (container.classList.contains('title-wrapper')) {
+                    // Force reflow to check widths
+                    const contentWidth = el.scrollWidth;
+                    const containerWidth = container.clientWidth;
+                    
+                    if (contentWidth > containerWidth) {
+                        const diff = contentWidth - containerWidth;
+                        const duration = diff * 0.05; // speed factor
+                        // Total cycle: 3s wait + scroll + 1s wait + scroll back + 3s...
+                        // We use Web Animations API for better control
+                        
+                        el.animate([
+                            { transform: 'translateX(0)', offset: 0 },
+                            { transform: 'translateX(0)', offset: 3000 / (4000 + duration*1000 * 2) }, // Wait 3s. Total time calc is complex here.
+                            // Let's use simpler keyframes with CSS logic injection or pure JS loop
+                        ], { duration: 1000 }); // Placeholder
+                        
+                        // JS Animation Loop
+                        // Cancel previous animation if any?
+                        if (el.marqueeAnim) el.marqueeAnim.cancel();
+                        
+                        const keyframes = [
+                            { transform: 'translateX(0)', offset: 0 },
+                            { transform: 'translateX(0)', offset: 3 / (4 + duration * 2) }, // Wait 3s
+                            { transform: `translateX(-${diff}px)`, offset: (3 + duration) / (4 + duration * 2) }, // Scroll to end
+                            { transform: `translateX(-${diff}px)`, offset: (4 + duration) / (4 + duration * 2) }, // Wait 1s
+                            { transform: 'translateX(0)', offset: 1 } // Scroll back
+                        ];
+                        
+                        const totalTime = (4 + duration * 2) * 1000;
+                        
+                        el.marqueeAnim = el.animate(keyframes, {
+                            duration: totalTime,
+                            iterations: Infinity
+                        });
+                    } else {
+                        if (el.marqueeAnim) el.marqueeAnim.cancel();
+                    }
+                }
+            });
+            
+            updateElements('.artist', el => el.textContent = artist);
+        }
+
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'song') {
+                const song = msg.data.songs ? msg.data.songs[0] : null;
+                if (song) {
+                    const title = song.name;
+                    const artist = song.artists.map(a => a.name).join(', ');
+                    const picUrl = song.album.picUrl;
+
+                    // Update Text with Marquee support
+                    updateText(title, artist);
+                    
+                    // Update Image
+                    updateElements('.cover-img', el => {
+                        // Reset rotation to restart animation cleanly on song change? 
+                        // Or keep spinning? Usually reset is better.
+                        el.classList.remove('rotating');
+                        void el.offsetWidth; // Trigger reflow
+                        
+                        if (el.src !== picUrl) {
+                            el.src = picUrl;
+                        } else {
+                             if (appSettings.autoBgColor || appSettings.autoThemeColor) analyzeAndApplyColors(el);
+                        }
+                    });
+
+                    // Update Rotation State
+                    isPlaying = true;
+                    updateRotation();
+
+                    // Duration
+                    let ms = song.duration || 0;
+                    if (song.bMusic && song.bMusic.playTime) ms = song.bMusic.playTime;
+                    if (song.hMusic && song.hMusic.playTime) ms = song.hMusic.playTime;
+                    if (song.playTime) ms = song.playTime;
+                    songDuration = ms / 1000;
+                    startTime = Date.now();
+                }
+            } else if (msg.type === 'settings') {
+                // Sync Settings
+                localStorage.setItem('musicOverlaySettings', JSON.stringify(msg.data));
+                loadSettings();
+            }
+        };
+
+        // --- Image Color Analysis ---
+        // Add load listeners to images
+        document.querySelectorAll('.cover-img').forEach(img => {
+            img.onload = function() {
+                if (appSettings.autoBgColor || appSettings.autoThemeColor) analyzeAndApplyColors(this);
+                // Ensure rotation is applied if needed after load
+                updateRotation();
+            }
+        });
+
+        function analyzeAndApplyColors(img) {
+            try {
+                // Security check for cross-origin
+                // We set crossorigin="Anonymous" in HTML
+                const colors = getDominantColors(img);
+                
+                if (appSettings.autoBgColor) {
+                    document.documentElement.style.setProperty('--bg-color', colors.bg);
+                }
+                
+                if (appSettings.autoThemeColor) {
+                    document.documentElement.style.setProperty('--theme-color', colors.theme);
+                }
+            } catch (e) {
+                console.warn("Color analysis failed (likely CORS)", e);
+            }
+        }
+
+        function getDominantColors(img) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 50;
+            canvas.height = 50;
+            ctx.drawImage(img, 0, 0, 50, 50);
+            
+            const imageData = ctx.getImageData(0, 0, 50, 50).data;
+            const colorCounts = {};
+            
+            for (let i = 0; i < imageData.length; i += 4) {
+                const r = imageData[i];
+                const g = imageData[i+1];
+                const b = imageData[i+2];
+                const a = imageData[i+3];
+                if (a < 128) continue;
+
+                const qr = Math.floor(r / 32) * 32;
+                const qg = Math.floor(g / 32) * 32;
+                const qb = Math.floor(b / 32) * 32;
+                const key = `${qr},${qg},${qb}`;
+                colorCounts[key] = (colorCounts[key] || 0) + 1;
+            }
+
+            const sortedColors = Object.keys(colorCounts).sort((a, b) => colorCounts[b] - colorCounts[a]);
+            const topColors = sortedColors.slice(0, 10).map(c => {
+                const [r, g, b] = c.split(',').map(Number);
+                const l = (Math.max(r, g, b) + Math.min(r, g, b)) / 2 / 255;
+                return { r, g, b, l, css: `rgb(${r},${g},${b})` };
+            });
+
+            if (topColors.length === 0) return { bg: '#f5f5f5', theme: '#000' };
+
+            // Determine effective mode
+            let mode = appSettings.colorMode || 'light';
+            if (mode === 'system') {
+                mode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            // Helper to lighten/darken
+            const adjustBrightness = (c, percent) => {
+                 // Clone object to avoid modifying original
+                 let { r, g, b } = c;
+                 // For lightening: target 255
+                 // For darkening: target 0
+                 // Simple linear interpolation
+                 if (percent > 0) {
+                     r = r + (255 - r) * percent;
+                     g = g + (255 - g) * percent;
+                     b = b + (255 - b) * percent;
+                 } else {
+                     const p = 1 + percent; // e.g. -0.3 => 0.7
+                     r = r * p;
+                     g = g * p;
+                     b = b * p;
+                 }
+                 
+                 r = Math.min(255, Math.max(0, r));
+                 g = Math.min(255, Math.max(0, g));
+                 b = Math.min(255, Math.max(0, b));
+                 
+                 return `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+            };
+
+            // Find Lightest and Darkest from palette
+            const lightest = [...topColors].sort((a,b) => b.l - a.l)[0];
+            const darkest = [...topColors].sort((a,b) => a.l - b.l)[0];
+
+            let bg, theme;
+
+            if (mode === 'light') {
+                // Light Mode: 
+                // BG = Brighter than brightest representative
+                // Text = Darker than darkest representative
+                bg = adjustBrightness(lightest, 0.5); // Increase brightness by 50%
+                theme = adjustBrightness(darkest, -0.3); // Darken by 30%
+            } else {
+                // Dark Mode:
+                // BG = Darker than darkest representative
+                // Text = Brighter than brightest representative
+                bg = adjustBrightness(darkest, -0.5); // Darken by 50%
+                theme = adjustBrightness(lightest, 0.3); // Brighten by 30%
+            }
+
+            return { bg, theme };
+        }
+
+        // --- Loop ---
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "00:00";
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function update() {
+            if (isPlaying && songDuration > 0) {
+                const now = Date.now();
+                let pos = (now - startTime) / 1000;
+                if (pos > songDuration) pos = songDuration;
+
+                const percent = (pos / songDuration) * 100;
+                
+                updateElements('.current-time', el => el.textContent = formatTime(pos));
+                updateElements('.total-time', el => el.textContent = formatTime(songDuration));
+                updateElements('.progress-fill', el => el.style.width = `${percent}%`);
+            }
+            requestAnimationFrame(update);
+        }
+        update();
+
+    </script>
+</body>
+</html>
