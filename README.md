@@ -13,6 +13,13 @@
 
 ![Preview](https://github.com/user-attachments/assets/11c5d899-09e3-49ac-8ce7-4446200b68ce)
 
+![Preview](https://github.com/user-attachments/assets/4635ee23-5207-4dbe-9c27-fee78ed96ff2)
+
+![Preview](https://github.com/user-attachments/assets/bb2392f0-46ee-4273-8d25-b23de77ad44c)
+
+![Preview](https://github.com/user-attachments/assets/639c895c-7378-40e9-8f15-fbd56dbb4ca7)
+
+
 ## ✨ 特性 (Features)
 
 *   **实时同步 (Real-time Synchronization)**: 切歌秒级响应。 (Updates instantly when song changes.)
