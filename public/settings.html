@@ -259,6 +259,40 @@
             color: #aaa;
         }
 
+        /* Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none; 
+            width: 100%; 
+            background: transparent; 
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            margin-top: -7px; 
+            box-shadow: 0 0 2px rgba(0,0,0,0.5);
+        }
+        
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #555;
+            border-radius: 2px;
+        }
+        
+        input[type=range]:focus {
+            outline: none;
+        }
+        
+        input[type=range]:focus::-webkit-slider-runnable-track {
+            background: #666;
+        }
+
     </style>
 </head>
 <body>
@@ -361,6 +395,92 @@
             </div>
         </div>
 
+        <!-- Lyrics Section -->
+        <div class="section">
+            <div class="section-title">Lyrics</div>
+
+            <div class="form-group">
+                <label>Font Size</label>
+                <div class="toggle-row">
+                    <input type="range" id="lyricFontSize" min="10" max="100" value="40" style="width: 100%;">
+                    <span id="lyricFontSizeValue" style="width: 50px; text-align: right;">40px</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Inactive Blur</label>
+                <div class="toggle-row">
+                    <input type="range" id="lyricBlur" min="0" max="10" step="0.5" value="2" style="width: 100%;">
+                    <span id="lyricBlurValue" style="width: 50px; text-align: right;">2px</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Alignment</label>
+                <div class="option-grid">
+                    <label class="option-card">
+                        <input type="radio" name="lyricAlign" value="left">
+                        <span>Left</span>
+                    </label>
+                    <label class="option-card">
+                        <input type="radio" name="lyricAlign" value="center">
+                        <span>Center</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Lyric Offset (Global)</label>
+                <div class="info-text">Adjust if lyrics are out of sync. Default: 0.0s (Internally -0.3s)</div>
+                <div class="toggle-row">
+                    <input type="range" id="lyricOffset" min="-5" max="5" step="0.1" value="0" style="width: 100%;">
+                    <span id="lyricOffsetValue" style="width: 50px; text-align: right;">0.0s</span>
+                </div>
+            </div>
+
+            <!-- Auto Colors for Lyrics -->
+             <div class="form-group">
+                <label>Auto Colors</label>
+                <div class="info-text">Same logic as Info page. Uses cover art analysis.</div>
+                
+                <div class="toggle-row">
+                    <div>
+                        <label style="margin:0; font-size:14px;">Auto Background</label>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoLyricBg">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div id="customLyricBgGroup" class="color-picker-row">
+                    <div class="swatch-list" id="lyricBgSwatches"></div>
+                    <div class="custom-picker-btn">
+                        <span>+</span>
+                        <input type="color" id="lyricBgColor" value="#1a1a1a">
+                    </div>
+                </div>
+
+                <div class="toggle-row" style="margin-top: 15px;">
+                    <div>
+                        <label style="margin:0; font-size:14px;">Auto Text Color</label>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoLyricTheme">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div id="customLyricThemeGroup" class="color-picker-row">
+                    <div class="swatch-list" id="lyricThemeSwatches"></div>
+                    <div class="custom-picker-btn">
+                        <span>+</span>
+                        <input type="color" id="lyricThemeColor" value="#e91e63">
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="preview-footer">
             Changes are saved automatically and applied in real-time.
         </div>
@@ -385,7 +505,23 @@
             customThemeColorGroup: document.getElementById('customThemeColorGroup'),
             bgSwatches: document.getElementById('bgSwatches'),
             themeSwatches: document.getElementById('themeSwatches'),
-            tempCover: document.getElementById('tempCover')
+            tempCover: document.getElementById('tempCover'),
+            // Lyrics
+            lyricFontSize: document.getElementById('lyricFontSize'),
+            lyricFontSizeValue: document.getElementById('lyricFontSizeValue'),
+            lyricBlur: document.getElementById('lyricBlur'),
+            lyricBlurValue: document.getElementById('lyricBlurValue'),
+            lyricOffset: document.getElementById('lyricOffset'),
+            lyricOffsetValue: document.getElementById('lyricOffsetValue'),
+            lyricAlign: document.getElementsByName('lyricAlign'),
+            autoLyricBg: document.getElementById('autoLyricBg'),
+            autoLyricTheme: document.getElementById('autoLyricTheme'),
+            lyricBgColor: document.getElementById('lyricBgColor'),
+            lyricThemeColor: document.getElementById('lyricThemeColor'),
+            customLyricBgGroup: document.getElementById('customLyricBgGroup'),
+            customLyricThemeGroup: document.getElementById('customLyricThemeGroup'),
+            lyricBgSwatches: document.getElementById('lyricBgSwatches'),
+            lyricThemeSwatches: document.getElementById('lyricThemeSwatches')
         };
         
         let currentCoverColors = [];
@@ -399,7 +535,16 @@
                 autoBgColor: false,
                 autoThemeColor: false,
                 bgColor: '#1a1a1a',
-                themeColor: '#e91e63'
+                themeColor: '#e91e63',
+                // Default Lyric Settings
+                lyricFontSize: 40,
+                lyricBlur: 2,
+                lyricOffset: 0,
+                lyricAlign: 'center',
+                autoLyricBg: false,
+                autoLyricTheme: false,
+                lyricBgColor: '#1a1a1a',
+                lyricThemeColor: '#e91e63'
             };
 
             // Set Layout Radio
@@ -434,6 +579,29 @@
             els.bgColor.value = settings.bgColor;
             els.themeColor.value = settings.themeColor;
 
+            // Set Lyric Settings
+            els.lyricFontSize.value = settings.lyricFontSize || 40;
+            els.lyricFontSizeValue.textContent = (settings.lyricFontSize || 40) + 'px';
+
+            els.lyricBlur.value = settings.lyricBlur !== undefined ? settings.lyricBlur : 2;
+            els.lyricBlurValue.textContent = (settings.lyricBlur !== undefined ? settings.lyricBlur : 2) + 'px';
+            
+            els.lyricOffset.value = settings.lyricOffset || 0;
+            els.lyricOffsetValue.textContent = (settings.lyricOffset || 0).toFixed(1) + 's';
+
+            for (const radio of els.lyricAlign) {
+                if (radio.value === (settings.lyricAlign || 'center')) {
+                    radio.checked = true;
+                    updateCardSelection(radio);
+                }
+            }
+
+            // Lyric Auto Colors
+            els.autoLyricBg.checked = settings.autoLyricBg || false;
+            els.autoLyricTheme.checked = settings.autoLyricTheme || false;
+            els.lyricBgColor.value = settings.lyricBgColor || '#1a1a1a';
+            els.lyricThemeColor.value = settings.lyricThemeColor || '#e91e63';
+
             updateUI();
         }
 
@@ -458,6 +626,19 @@
             } else {
                 els.customThemeColorGroup.classList.remove('disabled');
             }
+
+            // Lyrics UI
+            if (els.autoLyricBg.checked) {
+                els.customLyricBgGroup.classList.add('disabled');
+            } else {
+                els.customLyricBgGroup.classList.remove('disabled');
+            }
+
+            if (els.autoLyricTheme.checked) {
+                els.customLyricThemeGroup.classList.add('disabled');
+            } else {
+                els.customLyricThemeGroup.classList.remove('disabled');
+            }
         }
 
         function saveSettings() {
@@ -471,6 +652,11 @@
                 if (radio.checked) selectedStyle = radio.value;
             }
 
+            let selectedAlign = 'center';
+            for (const radio of els.lyricAlign) {
+                if (radio.checked) selectedAlign = radio.value;
+            }
+
             const settings = {
                 layout: selectedLayout,
                 coverStyle: selectedStyle,
@@ -478,8 +664,21 @@
                 autoBgColor: els.autoBgColor.checked,
                 autoThemeColor: els.autoThemeColor.checked,
                 bgColor: els.bgColor.value,
-                themeColor: els.themeColor.value
+                themeColor: els.themeColor.value,
+                lyricFontSize: parseInt(els.lyricFontSize.value),
+                lyricBlur: parseFloat(els.lyricBlur.value),
+                lyricOffset: parseFloat(els.lyricOffset.value),
+                lyricAlign: selectedAlign,
+                autoLyricBg: els.autoLyricBg.checked,
+                autoLyricTheme: els.autoLyricTheme.checked,
+                lyricBgColor: els.lyricBgColor.value,
+                lyricThemeColor: els.lyricThemeColor.value
             };
+
+            // Update UI Labels
+            els.lyricFontSizeValue.textContent = settings.lyricFontSize + 'px';
+            els.lyricBlurValue.textContent = settings.lyricBlur + 'px';
+            els.lyricOffsetValue.textContent = settings.lyricOffset.toFixed(1) + 's';
 
             localStorage.setItem('musicOverlaySettings', JSON.stringify(settings));
             
@@ -516,7 +715,7 @@
 
         function getDominantColors(img) {
             const canvas = document.getElementById('analysisCanvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             ctx.drawImage(img, 0, 0, 50, 50);
             
             const imageData = ctx.getImageData(0, 0, 50, 50).data;
@@ -559,32 +758,41 @@
         }
 
         function renderSwatches() {
-            // Render BG Swatches
-            els.bgSwatches.innerHTML = '';
-            currentCoverColors.forEach(color => {
+            // Helper to create swatches
+            const createSwatch = (color, targetInput) => {
                 const hex = rgbToHex(color);
                 const swatch = document.createElement('div');
                 swatch.className = 'swatch';
                 swatch.style.backgroundColor = color;
                 swatch.onclick = () => {
-                    els.bgColor.value = hex;
+                    targetInput.value = hex;
                     saveSettings();
                 };
-                els.bgSwatches.appendChild(swatch);
+                return swatch;
+            };
+
+            // Render BG Swatches
+            els.bgSwatches.innerHTML = '';
+            currentCoverColors.forEach(color => {
+                els.bgSwatches.appendChild(createSwatch(color, els.bgColor));
             });
 
             // Render Theme Swatches
             els.themeSwatches.innerHTML = '';
             currentCoverColors.forEach(color => {
-                const hex = rgbToHex(color);
-                const swatch = document.createElement('div');
-                swatch.className = 'swatch';
-                swatch.style.backgroundColor = color;
-                swatch.onclick = () => {
-                    els.themeColor.value = hex;
-                    saveSettings();
-                };
-                els.themeSwatches.appendChild(swatch);
+                els.themeSwatches.appendChild(createSwatch(color, els.themeColor));
+            });
+
+            // Render Lyric BG Swatches
+            els.lyricBgSwatches.innerHTML = '';
+            currentCoverColors.forEach(color => {
+                els.lyricBgSwatches.appendChild(createSwatch(color, els.lyricBgColor));
+            });
+
+            // Render Lyric Theme Swatches
+            els.lyricThemeSwatches.innerHTML = '';
+            currentCoverColors.forEach(color => {
+                els.lyricThemeSwatches.appendChild(createSwatch(color, els.lyricThemeColor));
             });
         }
 
@@ -611,6 +819,25 @@
             });
             els.bgColor.addEventListener(evt, saveSettings);
             els.themeColor.addEventListener(evt, saveSettings);
+            
+            // Lyrics Listeners
+            els.lyricFontSize.addEventListener(evt, saveSettings);
+            els.lyricBlur.addEventListener(evt, saveSettings);
+            els.lyricOffset.addEventListener(evt, saveSettings);
+            els.lyricAlign.forEach(el => el.addEventListener(evt, (e) => {
+                updateCardSelection(e.target);
+                saveSettings();
+            }));
+            els.autoLyricBg.addEventListener(evt, () => {
+                updateUI();
+                saveSettings();
+            });
+            els.autoLyricTheme.addEventListener(evt, () => {
+                updateUI();
+                saveSettings();
+            });
+            els.lyricBgColor.addEventListener(evt, saveSettings);
+            els.lyricThemeColor.addEventListener(evt, saveSettings);
         });
 
         // Init

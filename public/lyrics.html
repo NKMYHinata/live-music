@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lyrics View</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #e91e63;
+            --font-size: 40px;
+            --blur-amount: 2px;
+            --align: center;
+            --gap-top: 50vh; /* Start in middle */
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s;
+        }
+
+        #lyrics-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            /* Add some padding for "gaps" */
+            box-sizing: border-box;
+            padding: 20px 40px; 
+        }
+
+        #lyrics-container {
+            position: absolute;
+            top: 0;
+            left: 40px; /* Match padding */
+            right: 40px;
+            display: flex;
+            flex-direction: column;
+            /* Elastic scrolling */
+            transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+            transform: translateY(var(--gap-top));
+        }
+
+        .lyric-line {
+            /* Layout */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            width: 100%;
+            
+            /* Aesthetics */
+            text-align: var(--align);
+            opacity: -0.2;
+            filter: blur(var(--blur-amount));
+            transition: opacity 0.3s, filter 0.3s, transform 0.3s;
+            transform-origin: center left; 
+        }
+        
+        /* Adjust transform origin based on alignment */
+        [data-align="center"] .lyric-line {
+            transform-origin: center center;
+            /* Ensure line has enough height/margin to not clip when scaled */
+            margin: 10px 0;
+        }
+        [data-align="left"] .lyric-line {
+            transform-origin: center left;
+            margin: 10px 0;
+        }
+
+        .lyric-line.active {
+            opacity: 1;
+            filter: none;
+            /* Scale causes overflow issues if container is tight. 
+               Let's reduce scale slightly or ensure we have margin. 
+               Also, scale transform might clip if parent overflow hidden. 
+               Actually, overflow is hidden on wrapper. 
+               Let's add padding to line to prevent clipping?
+            */
+            transform: scale(1.1);
+            z-index: 10; /* Ensure active line is on top */
+            /* Ensure line height accommodates the scale */
+        }
+        
+        /* Add padding to lines to accommodate scaling without clipping top/bottom */
+        .lyric-line {
+            /* Layout */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            width: 100%;
+            /* Removed fixed padding in favor of margin in specific selectors if needed, 
+               but actually padding is safer for click targets/layout */
+            padding: 1vh 0; 
+            
+            /* Aesthetics */
+            text-align: var(--align);
+            opacity: 0.4;
+            filter: blur(var(--blur-amount));
+            transition: opacity 0.3s, filter 0.3s, transform 0.3s;
+            /* Transform origin set above */
+        }
+
+        .line-main {
+            font-weight: bold;
+            line-height: 1.2;
+            white-space: pre-wrap; 
+            /* Font size is set dynamically */
+        }
+
+        .line-trans {
+            opacity: 0.8;
+            line-height: 1.2;
+            margin-top: 4px;
+            /* Font size is set dynamically */
+        }
+
+        /* Karaoke Words */
+        .karaoke-word {
+            display: inline-block;
+            margin: 0 1px;
+            /* Use background clip for gradient fill */
+            background-clip: text;
+            -webkit-background-clip: text;
+            
+            /* PENDING COLOR (Unread) */
+            /* User asked for "lighter color of read part" */
+            /* Using CSS mix-blend-mode or just opacity is hard with gradient text */
+            /* We'll use a semi-transparent version of the THEME color instead of white */
+            /* But we can't easily get 'lighter theme color' without calc-color */
+            /* Let's use filter: brightness or opacity on the color variable? No */
+            /* Best bet: Use white with high transparency mixed with theme? */
+            /* Actually, Apple Music uses white for unread, and theme color for read. */
+            /* User request: "unread part should be lighter color of read part" */
+            /* So if read is Red, unread is Light Red (Pink)? or just transparent Red? */
+            /* Let's try opacity on the theme color variable if possible, but we only have hex usually */
+            /* Fallback: Use white with opacity 0.6 as a neutral 'lighter' look, 
+               OR use filter: grayscale(1) opacity(0.5) on the text? No. */
+            
+            /* Implementation: We will use the theme color but with low opacity for the 'pending' part of gradient */
+            /* Since we can't easily manipulate the hex var in CSS, we'll stick to a neutral light color 
+               OR we can try to use `color-mix` if supported (modern browsers) */
+            
+            /* Using color-mix to get a lighter version of theme color */
+            --pending-color: color-mix(in srgb, var(--text-color), white 60%);
+            
+            color: var(--pending-color); 
+            
+            /* We will use a linear gradient for the fill effect */
+            background-image: linear-gradient(to right, var(--text-color) var(--fill-percent), var(--pending-color) var(--fill-percent));
+            
+            /* Add subtle transition for transform */
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            
+            /* Default state */
+            --fill-percent: 0%;
+            transform: translateY(0);
+        }
+
+        .karaoke-word.played {
+            /* Fully filled */
+            --fill-percent: 100%;
+            color: transparent; /* Must be transparent to show background */
+            /* Move up slightly as requested */
+            transform: translateY(-4px); 
+        }
+
+        .karaoke-word.active-word {
+            /* Currently filling */
+            color: transparent;
+        }
+
+        .karaoke-word.pending {
+            --fill-percent: 0%;
+            color: var(--pending-color); 
+            transform: translateY(0);
+        }
+
+        #status {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #555;
+            z-index: 100;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="lyrics-wrapper">
+        <div id="lyrics-container"></div>
+    </div>
+    <div id="status">Disconnected</div>
+
+    <script>
+        const ws = new WebSocket(`ws://${location.host}`);
+        const lyricsContainer = document.getElementById('lyrics-container');
+        const statusEl = document.getElementById('status');
+        
+        // State
+        let settings = {};
+        let currentLyrics = [];
+        let isPlaying = false;
+        let startTime = 0;
+        let songDuration = 0;
+        let activeLineIndex = -1;
+        let currentSongPicUrl = "";
+
+        // Hidden canvas for analysis
+        const analysisCanvas = document.createElement('canvas');
+        analysisCanvas.width = 50;
+        analysisCanvas.height = 50;
+        const analysisCtx = analysisCanvas.getContext('2d');
+        const tempImg = new Image();
+        tempImg.crossOrigin = "Anonymous";
+
+        // Constants
+        const BASE_OFFSET = -0.3; // Default offset: 0.3s ahead (triggers early)
+        
+        // Settings Loading
+        function loadSettings() {
+            try {
+                const stored = JSON.parse(localStorage.getItem('musicOverlaySettings'));
+                if (stored) applySettings(stored);
+            } catch (e) {
+                console.error("Failed to load settings", e);
+            }
+        }
+
+        function applySettings(newSettings) {
+            settings = newSettings || {};
+            
+            // Colors
+            // If Auto is enabled, we wait for image analysis or use last analyzed
+            // If Auto is disabled, we force manual colors
+            
+            if (!settings.autoLyricTheme) {
+                if (settings.themeColor) {
+                    document.documentElement.style.setProperty('--text-color', settings.themeColor);
+                }
+            } else {
+                 // Trigger re-analysis if we have image but no auto color applied yet?
+                 // Or just let the image load handler do it.
+                 // If we switch to auto, and image is already loaded, we should re-apply
+                 if (currentSongPicUrl) {
+                     analyzeAndApplyColors(tempImg);
+                 }
+            }
+
+            if (!settings.autoLyricBg) {
+                if (settings.bgColor) {
+                    document.documentElement.style.setProperty('--bg-color', settings.bgColor);
+                }
+            } else {
+                 if (currentSongPicUrl) {
+                     analyzeAndApplyColors(tempImg);
+                 }
+            }
+
+            // Lyrics Specific
+            const fontSize = settings.lyricFontSize || 40;
+            document.documentElement.style.setProperty('--font-size', fontSize + 'px');
+            
+            const blur = settings.lyricBlur !== undefined ? settings.lyricBlur : 2;
+            document.documentElement.style.setProperty('--blur-amount', blur + 'px');
+
+            const align = settings.lyricAlign || 'center';
+            document.documentElement.style.setProperty('--align', align);
+            document.body.setAttribute('data-align', align);
+
+            // Re-render lyrics if font size changed as it affects line heights
+            if (currentLyrics.length > 0) {
+                renderLyrics();
+            }
+        }
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'musicOverlaySettings') loadSettings();
+        });
+        
+        loadSettings();
+
+        tempImg.onload = () => {
+             analyzeAndApplyColors(tempImg);
+        };
+
+        function analyzeAndApplyColors(img) {
+            if (!settings.autoLyricBg && !settings.autoLyricTheme) return;
+            if (!img || !img.complete || img.naturalWidth === 0) return;
+
+            try {
+                const colors = getDominantColors(img);
+                
+                if (settings.autoLyricBg) {
+                    document.documentElement.style.setProperty('--bg-color', colors.bg);
+                } else if (settings.bgColor) {
+                     // Ensure fallback if unchecked
+                    document.documentElement.style.setProperty('--bg-color', settings.bgColor);
+                }
+                
+                if (settings.autoLyricTheme) {
+                    document.documentElement.style.setProperty('--text-color', colors.theme);
+                } else if (settings.themeColor) {
+                    document.documentElement.style.setProperty('--text-color', settings.themeColor);
+                }
+            } catch (e) {
+                console.warn("Analysis failed", e);
+            }
+        }
+
+        // Color Logic from info.html
+        function getDominantColors(img) {
+            analysisCtx.drawImage(img, 0, 0, 50, 50);
+            const imageData = analysisCtx.getImageData(0, 0, 50, 50).data;
+            const colorCounts = {};
+            
+            for (let i = 0; i < imageData.length; i += 4) {
+                const r = imageData[i];
+                const g = imageData[i+1];
+                const b = imageData[i+2];
+                const a = imageData[i+3];
+                if (a < 128) continue;
+                const qr = Math.floor(r / 32) * 32;
+                const qg = Math.floor(g / 32) * 32;
+                const qb = Math.floor(b / 32) * 32;
+                const key = `${qr},${qg},${qb}`;
+                colorCounts[key] = (colorCounts[key] || 0) + 1;
+            }
+
+            const sortedColors = Object.keys(colorCounts).sort((a, b) => colorCounts[b] - colorCounts[a]);
+            const topColors = sortedColors.slice(0, 10).map(c => {
+                const [r, g, b] = c.split(',').map(Number);
+                const l = (Math.max(r, g, b) + Math.min(r, g, b)) / 2 / 255;
+                return { r, g, b, l };
+            });
+
+            if (topColors.length === 0) return { bg: '#1a1a1a', theme: '#e91e63' };
+
+            let mode = settings.colorMode || 'light';
+            if (mode === 'system') {
+                mode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            const adjustBrightness = (c, percent) => {
+                 let { r, g, b } = c;
+                 if (percent > 0) {
+                     r = r + (255 - r) * percent;
+                     g = g + (255 - g) * percent;
+                     b = b + (255 - b) * percent;
+                 } else {
+                     const p = 1 + percent;
+                     r = r * p;
+                     g = g * p;
+                     b = b * p;
+                 }
+                 r = Math.min(255, Math.max(0, r));
+                 g = Math.min(255, Math.max(0, g));
+                 b = Math.min(255, Math.max(0, b));
+                 return `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+            };
+
+            const lightest = [...topColors].sort((a,b) => b.l - a.l)[0];
+            const darkest = [...topColors].sort((a,b) => a.l - b.l)[0];
+
+            let bg, theme;
+            if (mode === 'light') {
+                bg = adjustBrightness(lightest, 0.5);
+                theme = adjustBrightness(darkest, -0.3);
+            } else {
+                bg = adjustBrightness(darkest, -0.5);
+                theme = adjustBrightness(lightest, 0.3);
+            }
+            return { bg, theme };
+        }
+
+        // WebSocket
+        ws.onopen = () => {
+            statusEl.textContent = 'Connected';
+            statusEl.style.color = '#4caf50';
+        };
+        ws.onclose = () => statusEl.textContent = 'Disconnected';
+        
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'song') {
+                const song = msg.data.songs ? msg.data.songs[0] : null;
+                if (song) {
+                    // Update Cover for Color Analysis
+                    if (song.album && song.album.picUrl && song.album.picUrl !== currentSongPicUrl) {
+                        currentSongPicUrl = song.album.picUrl;
+                        tempImg.src = currentSongPicUrl;
+                    }
+
+                    let ms = song.duration || 0;
+                    if (song.bMusic && song.bMusic.playTime) ms = song.bMusic.playTime;
+                    else if (song.playTime) ms = song.playTime;
+                    
+                    songDuration = ms / 1000;
+                    startTime = Date.now(); // Resync start
+                    isPlaying = true;
+                }
+            } else if (msg.type === 'lyrics') {
+                handleLyricsData(msg.data);
+            } else if (msg.type === 'settings') {
+                localStorage.setItem('musicOverlaySettings', JSON.stringify(msg.data));
+                loadSettings();
+            }
+        };
+
+        // Lyrics Processing (Reused logic)
+        function handleLyricsData(lrcData) {
+            if (lrcData.yrc && lrcData.yrc.lyric) {
+                const parsed = parseYrc(lrcData.yrc.lyric);
+                const translation = lrcData.tlyric ? parseLrc(lrcData.tlyric.lyric) : [];
+                currentLyrics = mergeLyrics(parsed, translation);
+            } else {
+                const original = lrcData.lrc ? parseLrc(lrcData.lrc.lyric) : [];
+                const translation = lrcData.tlyric ? parseLrc(lrcData.tlyric.lyric) : [];
+                currentLyrics = mergeLyrics(original, translation);
+            }
+            activeLineIndex = -1;
+            renderLyrics();
+        }
+
+        // --- Parsing Functions (Duplicated from index.html) ---
+        function parseYrc(yrc) {
+            if (!yrc || typeof yrc !== 'string') return [];
+            const lines = yrc.split('\n');
+            const result = [];
+            const lineExp = /^\[(\d+),(\d+)\]/;
+            const wordExp = /\((\d+),(\d+),(\d+)\)([^\(\)]+)/g;
+
+            for (const line of lines) {
+                const match = lineExp.exec(line);
+                if (match) {
+                    const time = parseInt(match[1]) / 1000;
+                    const duration = parseInt(match[2]) / 1000;
+                    const words = [];
+                    wordExp.lastIndex = 0;
+                    let wordMatch;
+                    let fullText = "";
+                    while ((wordMatch = wordExp.exec(line)) !== null) {
+                        words.push({
+                            time: parseInt(wordMatch[1]) / 1000,
+                            duration: parseInt(wordMatch[2]) / 1000,
+                            text: wordMatch[4]
+                        });
+                        fullText += wordMatch[4];
+                    }
+                    if (words.length === 0) fullText = line.replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim();
+                    if (fullText) result.push({ time, duration, text: fullText, words: words.length > 0 ? words : null });
+                }
+            }
+            return result;
+        }
+
+        function parseLrc(lrc) {
+            if (!lrc) return [];
+            const lines = lrc.split('\n');
+            const result = [];
+            const timeExp = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+            for (const line of lines) {
+                const match = timeExp.exec(line);
+                if (match) {
+                    const msStr = match[3];
+                    const ms = parseInt(msStr) * (msStr.length === 2 ? 10 : 1);
+                    const time = parseInt(match[1]) * 60 + parseInt(match[2]) + ms / 1000;
+                    const text = line.replace(timeExp, '').trim();
+                    if (text) result.push({ time, text });
+                }
+            }
+            return result;
+        }
+
+        function mergeLyrics(original, translation) {
+            if (!translation || translation.length === 0) return original;
+            const trMap = new Map();
+            translation.forEach(item => trMap.set(Math.floor(item.time * 100) / 100, item.text));
+            
+            return original.map(item => {
+                const key = Math.floor(item.time * 100) / 100;
+                let trText = trMap.get(key);
+                if (!trText) {
+                    let minDiff = 0.5;
+                    for (const [tKey, tText] of trMap.entries()) {
+                        const diff = Math.abs(tKey - key);
+                        if (diff < minDiff) { minDiff = diff; trText = tText; }
+                    }
+                }
+                return { ...item, trText: trText || null };
+            });
+        }
+
+        // --- Rendering & Sync ---
+
+        function renderLyrics() {
+            lyricsContainer.innerHTML = '';
+            
+            // Calculate sizes based on font size setting
+            const baseSize = settings.lyricFontSize || 40;
+            // Total height target for consistency
+            // Let's say total height is 2.5x baseSize
+            const totalHeight = baseSize * 2.5; 
+            
+            currentLyrics.forEach((line, index) => {
+                const div = document.createElement('div');
+                div.className = 'lyric-line';
+                div.id = `line-${index}`;
+                div.style.height = `${totalHeight}px`; // Enforce consistent height
+                
+                // Logic for font sizes
+                let mainSize, transSize;
+                
+                if (line.trText) {
+                    // Has translation: Main smaller, Trans smaller
+                    mainSize = baseSize * 0.9;
+                    transSize = baseSize * 0.5;
+                    // Vertical distribution handled by flex-direction column & justify-center
+                } else {
+                    // No translation: Main larger
+                    mainSize = baseSize * 1.3; 
+                    transSize = 0;
+                }
+
+                // Main Text
+                const mainDiv = document.createElement('div');
+                mainDiv.className = 'line-main';
+                mainDiv.style.fontSize = `${mainSize}px`;
+                
+                if (line.words) {
+                    // YRC Karaoke
+                    line.words.forEach(w => {
+                        const span = document.createElement('span');
+                        span.className = 'karaoke-word pending';
+                        span.textContent = w.text;
+                        span.dataset.start = w.time;
+                        span.dataset.end = w.time + w.duration;
+                        mainDiv.appendChild(span);
+                    });
+                } else {
+                    mainDiv.textContent = line.text;
+                }
+                div.appendChild(mainDiv);
+
+                // Translation
+                if (line.trText) {
+                    const trDiv = document.createElement('div');
+                    trDiv.className = 'line-trans';
+                    trDiv.textContent = line.trText;
+                    trDiv.style.fontSize = `${transSize}px`;
+                    div.appendChild(trDiv);
+                }
+
+                lyricsContainer.appendChild(div);
+            });
+        }
+
+        function update() {
+            if (isPlaying && currentLyrics.length > 0) {
+                const now = Date.now();
+                let songTime = (now - startTime) / 1000;
+                if (songTime > songDuration) songTime = songDuration;
+
+                // Apply Offsets
+                // Default offset is -0.3s (Lyrics are 0.3s ahead of audio)
+                // User offset is added to that
+                const userOffset = settings.lyricOffset || 0;
+                const effectiveTime = songTime + BASE_OFFSET + userOffset;
+
+                // 1. Find Active Line
+                let newActiveIndex = -1;
+                for (let i = 0; i < currentLyrics.length; i++) {
+                    if (currentLyrics[i].time <= effectiveTime) {
+                        newActiveIndex = i;
+                    } else {
+                        break;
+                    }
+                }
+
+                if (newActiveIndex !== activeLineIndex) {
+                    if (activeLineIndex !== -1) {
+                        const oldEl = document.getElementById(`line-${activeLineIndex}`);
+                        if (oldEl) oldEl.classList.remove('active');
+                    }
+                    if (newActiveIndex !== -1) {
+                        const newEl = document.getElementById(`line-${newActiveIndex}`);
+                        if (newEl) {
+                            newEl.classList.add('active');
+                            scrollToLine(newActiveIndex);
+                        }
+                    }
+                    activeLineIndex = newActiveIndex;
+                }
+
+                // 2. Update Karaoke Words (Word-by-word)
+                if (activeLineIndex !== -1) {
+                    const activeLine = currentLyrics[activeLineIndex];
+                    if (activeLine.words) {
+                        const lineEl = document.getElementById(`line-${activeLineIndex}`);
+                        if (lineEl) {
+                            const words = lineEl.querySelectorAll('.karaoke-word');
+                            words.forEach(w => {
+                                const wStart = parseFloat(w.dataset.start);
+                                const wEnd = parseFloat(w.dataset.end);
+                                const duration = wEnd - wStart;
+                                
+                                if (effectiveTime >= wEnd) {
+                                    // Fully played
+                                    w.className = 'karaoke-word played';
+                                    w.style.backgroundImage = `linear-gradient(to right, var(--text-color) 100%, var(--pending-color) 100%)`;
+                                    // Move up slightly
+                                    w.style.transform = 'translateY(-4px)';
+                                } else if (effectiveTime >= wStart) {
+                                    // Currently playing - Calculate percentage
+                                    const progress = (effectiveTime - wStart) / duration;
+                                    const percent = Math.min(Math.max(progress * 100, 0), 100);
+                                    
+                                    w.className = 'karaoke-word active-word';
+                                    // We need to set the gradient dynamically
+                                    w.style.backgroundImage = `linear-gradient(to right, var(--text-color) ${percent}%, var(--pending-color) ${percent}%)`;
+                                    
+                                    // Animate transform from 0 to -4px based on progress
+                                    w.style.transform = `translateY(${-4 * progress}px)`;
+                                    
+                                } else {
+                                    // Pending
+                                    w.className = 'karaoke-word pending';
+                                    w.style.backgroundImage = `linear-gradient(to right, var(--text-color) 0%, var(--pending-color) 0%)`;
+                                    w.style.transform = 'translateY(0)';
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+            requestAnimationFrame(update);
+        }
+
+        function scrollToLine(index) {
+            // We want the active line to be in the center
+            // Container transform logic
+            const lineEl = document.getElementById(`line-${index}`);
+            if (!lineEl) return;
+
+            // Get line height (fixed)
+            const lineHeight = lineEl.offsetHeight; 
+            
+            // Calculate offset to center this line
+            // We want line center to be at viewport center (50vh)
+            // Container starts at top:0.
+            // transformY should shift the whole list up so that line is at 50vh.
+            
+            // Distance from top of list to top of line = index * lineHeight (roughly, plus margins if any)
+            // Actually let's use offsetTop
+            const lineTop = lineEl.offsetTop;
+            const lineCenter = lineTop + (lineHeight / 2);
+            
+            const viewportCenter = window.innerHeight / 2;
+            
+            const translateY = viewportCenter - lineCenter;
+            
+            lyricsContainer.style.transform = `translateY(${translateY}px)`;
+        }
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            if (activeLineIndex !== -1) scrollToLine(activeLineIndex);
+        });
+
+        update();
+
+    </script>
+</body>
+</html>
