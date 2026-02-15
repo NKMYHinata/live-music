@@ -1,0 +1,7 @@
+{
+  "proxyPort": 8001,
+  "webInterfacePort": 8002,
+  "uiPort": 8003,
+  "neteasePort": 8001,
+  "infoPort": 8003
+}

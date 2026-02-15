@@ -5,8 +5,8 @@ $last = ""
 while ($true) {
     try {
         $proc = Get-Process cloudmusic -ErrorAction Stop
-        # If multiple processes, pick the one with a title
-        $p = $proc | Where-Object { $_.MainWindowTitle -ne "" } | Select-Object -First 1
+        # If multiple processes, pick the one with a title, excluding "桌面歌词" and "Desktop Lyrics" just in case
+        $p = $proc | Where-Object { $_.MainWindowTitle -ne "" -and $_.MainWindowTitle -ne "桌面歌词" -and $_.MainWindowTitle -ne "Desktop Lyrics" } | Select-Object -First 1
         
         if ($p) {
             $current = $p.MainWindowTitle

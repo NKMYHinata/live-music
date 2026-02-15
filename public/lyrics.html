@@ -35,19 +35,31 @@
             overflow: hidden;
             /* Add some padding for "gaps" */
             box-sizing: border-box;
-            padding: 20px 40px; 
+            /* Fade mask: left and right edges */
+            /* Start fade later on left side, but keep right side fade */
+            /* Gradient: 
+               0% - 10%: Transparent to Black (Left Fade)
+               10% - 90%: Black (Visible)
+               90% - 100%: Black to Transparent (Right Fade)
+            */
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
         }
 
         #lyrics-container {
             position: absolute;
             top: 0;
-            left: 40px; /* Match padding */
-            right: 40px;
+            left: 0;
+            right: 0;
+            /* Increased padding to push content further into the visible zone */
+            /* This ensures the start of the line aligns with where the fade ends (15% width) */
+            padding: 0 15vw; 
             display: flex;
             flex-direction: column;
             /* Elastic scrolling */
             transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
             transform: translateY(var(--gap-top));
+            box-sizing: border-box;
         }
 
         .lyric-line {
@@ -100,6 +112,7 @@
             /* Removed fixed padding in favor of margin in specific selectors if needed, 
                but actually padding is safer for click targets/layout */
             padding: 1vh 0; 
+            overflow: visible; /* Fix clipping issues */
             
             /* Aesthetics */
             text-align: var(--align);
@@ -111,15 +124,32 @@
 
         .line-main {
             font-weight: bold;
-            line-height: 1.2;
-            white-space: pre-wrap; 
+            line-height: 1.2; /* Restored tighter line height */
+            white-space: nowrap; /* Prevent wrapping */
+            display: inline-block; /* Allow transform */
+            width: fit-content; /* Allow it to be wider than parent */
+            min-width: 100%; /* Ensure it takes at least full width for alignment */
+            position: relative; /* For offset calculation context */
+            will-change: transform; /* Optimize performance */
+            /* Remove transition for transform to allow JS-driven smooth scroll */
+            transition: opacity 0.3s, filter 0.3s; 
+            padding-bottom: 0.15em; /* Just enough for descenders */
+            margin-bottom: -0.1em; /* Negative margin to pull translation closer */
             /* Font size is set dynamically */
         }
 
         .line-trans {
             opacity: 0.8;
             line-height: 1.2;
-            margin-top: 4px;
+            margin-top: 0; /* Removed margin-top */
+            white-space: nowrap; /* Prevent wrapping */
+            display: inline-block;
+            width: fit-content;
+            min-width: 100%;
+            position: relative;
+            will-change: transform;
+            transition: opacity 0.3s, filter 0.3s;
+            padding-bottom: 0.1em;
             /* Font size is set dynamically */
         }
 
@@ -130,6 +160,11 @@
             /* Use background clip for gradient fill */
             background-clip: text;
             -webkit-background-clip: text;
+            /* Add min-width for space characters */
+            min-width: 4px;
+            
+            /* Add padding to ensure descenders (y, g, j, p, q) are covered by background */
+            padding-bottom: 0.1em;
             
             /* PENDING COLOR (Unread) */
             /* User asked for "lighter color of read part" */
@@ -165,6 +200,18 @@
             transform: translateY(0);
         }
 
+        .karaoke-word.en {
+            margin-right: 0.25em; /* Restore reasonable spacing */
+            display: inline-block;
+        }
+        
+        /* Ensure margin is applied in all states */
+        .karaoke-word.en.played,
+        .karaoke-word.en.active-word,
+        .karaoke-word.en.pending {
+            margin-right: 0.25em;
+        }
+
         .karaoke-word.played {
             /* Fully filled */
             --fill-percent: 100%;
@@ -191,6 +238,7 @@
             font-size: 12px;
             color: #555;
             z-index: 100;
+            display: none; /* Hide status */
         }
 
     </style>
@@ -481,20 +529,24 @@
 
         function mergeLyrics(original, translation) {
             if (!translation || translation.length === 0) return original;
-            const trMap = new Map();
-            translation.forEach(item => trMap.set(Math.floor(item.time * 100) / 100, item.text));
+            // Use a simpler approach: find nearest timestamp
+            // Translation array is usually sorted by time
             
             return original.map(item => {
-                const key = Math.floor(item.time * 100) / 100;
-                let trText = trMap.get(key);
-                if (!trText) {
-                    let minDiff = 0.5;
-                    for (const [tKey, tText] of trMap.entries()) {
-                        const diff = Math.abs(tKey - key);
-                        if (diff < minDiff) { minDiff = diff; trText = tText; }
+                const time = item.time;
+                let bestMatch = null;
+                let minDiff = 2.0; // Allow up to 2 seconds difference
+                
+                // Linear search is fine for typical lyrics length (50-100 lines)
+                for (const tr of translation) {
+                    const diff = Math.abs(tr.time - time);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        bestMatch = tr.text;
                     }
                 }
-                return { ...item, trText: trText || null };
+                
+                return { ...item, trText: bestMatch || null };
             });
         }
 
@@ -539,6 +591,12 @@
                     line.words.forEach(w => {
                         const span = document.createElement('span');
                         span.className = 'karaoke-word pending';
+                        // Check if word is English/Number
+                        // Enhanced regex to be more inclusive and robust
+                        // Check for ASCII alphanumeric/punctuation
+                        if (/^[\x21-\x7E\s]+$/.test(w.text)) {
+                            span.classList.add('en');
+                        }
                         span.textContent = w.text;
                         span.dataset.start = w.time;
                         span.dataset.end = w.time + w.duration;
@@ -587,7 +645,14 @@
                 if (newActiveIndex !== activeLineIndex) {
                     if (activeLineIndex !== -1) {
                         const oldEl = document.getElementById(`line-${activeLineIndex}`);
-                        if (oldEl) oldEl.classList.remove('active');
+                        if (oldEl) {
+                            oldEl.classList.remove('active');
+                            // Reset scroll on inactive lines
+                            const oldMain = oldEl.querySelector('.line-main');
+                            if (oldMain) oldMain.style.transform = 'translateX(0)';
+                            const oldTrans = oldEl.querySelector('.line-trans');
+                            if (oldTrans) oldTrans.style.transform = 'translateX(0)';
+                        }
                     }
                     if (newActiveIndex !== -1) {
                         const newEl = document.getElementById(`line-${newActiveIndex}`);
@@ -599,43 +664,210 @@
                     activeLineIndex = newActiveIndex;
                 }
 
-                // 2. Update Karaoke Words (Word-by-word)
+                // 2. Update Karaoke Words & Scrolling
                 if (activeLineIndex !== -1) {
                     const activeLine = currentLyrics[activeLineIndex];
-                    if (activeLine.words) {
-                        const lineEl = document.getElementById(`line-${activeLineIndex}`);
-                        if (lineEl) {
+                    const lineEl = document.getElementById(`line-${activeLineIndex}`);
+                    
+                    if (lineEl) {
+                        const mainDiv = lineEl.querySelector('.line-main');
+                        const containerWidth = lineEl.clientWidth;
+                        const contentWidth = mainDiv.scrollWidth;
+                        let scrollX = 0;
+
+                        if (activeLine.words) {
+                            // YRC Karaoke Logic
                             const words = lineEl.querySelectorAll('.karaoke-word');
-                            words.forEach(w => {
+                            let currentPixel = 0;
+                            let activeWordIndex = -1;
+
+                            // 1. Update Karaoke Words Style & Find Progress
+                            words.forEach((w, index) => {
                                 const wStart = parseFloat(w.dataset.start);
                                 const wEnd = parseFloat(w.dataset.end);
                                 const duration = wEnd - wStart;
+                                const wLeft = w.offsetLeft;
+                                const wWidth = w.offsetWidth;
+                                
+                                // Check for English class BEFORE modifying className
+                                const isEn = w.classList.contains('en');
                                 
                                 if (effectiveTime >= wEnd) {
                                     // Fully played
                                     w.className = 'karaoke-word played';
+                                    if (isEn) w.classList.add('en');
+                                    
                                     w.style.backgroundImage = `linear-gradient(to right, var(--text-color) 100%, var(--pending-color) 100%)`;
-                                    // Move up slightly
                                     w.style.transform = 'translateY(-4px)';
+                                    
+                                    // Current pixel is at least end of this word
+                                    currentPixel = wLeft + wWidth;
+                                    
                                 } else if (effectiveTime >= wStart) {
-                                    // Currently playing - Calculate percentage
+                                    // Currently playing
+                                    activeWordIndex = index;
                                     const progress = (effectiveTime - wStart) / duration;
                                     const percent = Math.min(Math.max(progress * 100, 0), 100);
                                     
                                     w.className = 'karaoke-word active-word';
-                                    // We need to set the gradient dynamically
+                                    if (isEn) w.classList.add('en');
+
                                     w.style.backgroundImage = `linear-gradient(to right, var(--text-color) ${percent}%, var(--pending-color) ${percent}%)`;
-                                    
-                                    // Animate transform from 0 to -4px based on progress
                                     w.style.transform = `translateY(${-4 * progress}px)`;
                                     
+                                    // Calculate precise pixel position
+                                    currentPixel = wLeft + (wWidth * progress);
                                 } else {
                                     // Pending
                                     w.className = 'karaoke-word pending';
+                                    if (isEn) w.classList.add('en');
+                                    
                                     w.style.backgroundImage = `linear-gradient(to right, var(--text-color) 0%, var(--pending-color) 0%)`;
                                     w.style.transform = 'translateY(0)';
                                 }
                             });
+
+                            // 2. Interpolate Gap (if no active word but some played)
+                            // If we are between words, interpolate position
+                            if (activeWordIndex === -1 && words.length > 0) {
+                                // Find last played word
+                                let lastPlayedIndex = -1;
+                                for (let i = words.length - 1; i >= 0; i--) {
+                                    if (parseFloat(words[i].dataset.end) <= effectiveTime) {
+                                        lastPlayedIndex = i;
+                                        break;
+                                    }
+                                }
+
+                                if (lastPlayedIndex !== -1 && lastPlayedIndex < words.length - 1) {
+                                    const prevW = words[lastPlayedIndex];
+                                    const nextW = words[lastPlayedIndex + 1];
+                                    const prevEnd = parseFloat(prevW.dataset.end);
+                                    const nextStart = parseFloat(nextW.dataset.start);
+                                    const gapDuration = nextStart - prevEnd;
+                                    
+                                    if (gapDuration > 0.05) { // Only interpolate significant gaps
+                                        const gapProgress = (effectiveTime - prevEnd) / gapDuration;
+                                        const prevRight = prevW.offsetLeft + prevW.offsetWidth;
+                                        const nextLeft = nextW.offsetLeft;
+                                        const gapDist = nextLeft - prevRight;
+                                        currentPixel = prevRight + (gapDist * gapProgress);
+                                    } else {
+                                        // Just stick to end of previous word
+                                        currentPixel = prevW.offsetLeft + prevW.offsetWidth;
+                                    }
+                                } else if (lastPlayedIndex === -1) {
+                                    // Before first word
+                                    currentPixel = 0;
+                                }
+                            }
+
+                            // 3. Scroll Logic for YRC
+                        // Focus Point: 70% of container width (keep active word near right side)
+                        // If currentPixel (active word end) is less than 70%, scrollX = 0 (aligned left)
+                        // If currentPixel > 70%, we need to scroll so that currentPixel is AT 70%.
+                        // scrollX = currentPixel - focusPoint
+                        
+                        if (contentWidth > containerWidth) {
+                            const focusPoint = containerWidth * 0.7;
+                            let targetScroll = 0;
+                            
+                            if (currentPixel > focusPoint) {
+                                targetScroll = currentPixel - focusPoint;
+                            }
+                            
+                            // Initialize lastScroll if not present
+                            if (!lineEl.dataset.lastScroll) lineEl.dataset.lastScroll = "0";
+                            let lastScroll = parseFloat(lineEl.dataset.lastScroll);
+                            
+                            // Smooth scroll dampening (Lerp)
+                            // Factor 0.1 gives smooth follow. 
+                            const lerpFactor = 0.1;
+                            
+                            // Calculate new scroll position
+                            let newScroll = lastScroll + (targetScroll - lastScroll) * lerpFactor;
+                            
+                            // If difference is very small, snap to target to stop micro-jitter
+                            if (Math.abs(targetScroll - newScroll) < 0.5) newScroll = targetScroll;
+
+                            // Store for next frame
+                            lineEl.dataset.lastScroll = newScroll;
+                            scrollX = newScroll;
+                        } else {
+                            scrollX = 0;
+                            // Reset state if line fits
+                            if (lineEl.dataset.lastScroll) lineEl.dataset.lastScroll = "0";
+                        }
+                        } else {
+                            // LRC Scroll Logic
+                            // Uniform scroll based on duration
+                            // Start static 1s, End static 0.5s
+                            
+                            // Calculate duration
+                            let nextTime = songDuration;
+                            if (activeLineIndex < currentLyrics.length - 1) {
+                                nextTime = currentLyrics[activeLineIndex + 1].time;
+                            }
+                            // Fallback if nextTime is weird
+                            if (nextTime <= activeLine.time) nextTime = activeLine.time + 5;
+
+                            const lineDuration = nextTime - activeLine.time;
+                            const timeInLine = effectiveTime - activeLine.time;
+                            
+                            // Logic: 
+                            // 0 to 1s: Static
+                            // 1s to (Duration - 0.5s): Scroll
+                            // (Duration - 0.5s) to End: Static
+                            
+                            const scrollDuration = Math.max(0, lineDuration - 1.5);
+                            
+                            if (scrollDuration > 0 && contentWidth > containerWidth) {
+                                const maxScroll = contentWidth - containerWidth;
+                                
+                                if (timeInLine < 1.0) {
+                                    scrollX = 0;
+                                } else if (timeInLine > (lineDuration - 0.5)) {
+                                    scrollX = maxScroll;
+                                } else {
+                                    const scrollProgress = (timeInLine - 1.0) / scrollDuration;
+                                    scrollX = scrollProgress * maxScroll;
+                                }
+                            }
+                        }
+                        
+                        // Apply Scroll
+                        // Clamp scrollX
+                        const maxScroll = Math.max(0, contentWidth - containerWidth);
+                        scrollX = Math.max(0, Math.min(scrollX, maxScroll));
+                        
+                        // Apply to Main Div
+                        mainDiv.style.transform = `translateX(${-scrollX}px)`;
+
+                        // Also scroll translation line if needed
+                        const transDiv = lineEl.querySelector('.line-trans');
+                        if (transDiv) {
+                             if (transDiv.scrollWidth > containerWidth) {
+                                // For translation, we don't have word-level sync.
+                                // We can use the same scroll ratio as main line?
+                                // Or same pixel amount?
+                                // If main line is very long but translation is short, sync pixel amount might be weird.
+                                // If main line is short but translation is long (rare), main line won't scroll much.
+                                
+                                // Best approach: Use progress ratio of main line scroll.
+                                // mainScrollProgress = scrollX / maxScroll (of main line)
+                                // transScrollX = mainScrollProgress * transMaxScroll
+                                
+                                const transMax = transDiv.scrollWidth - containerWidth;
+                                let transScrollX = 0;
+                                
+                                if (maxScroll > 0) {
+                                    const ratio = scrollX / maxScroll;
+                                    transScrollX = ratio * transMax;
+                                } 
+                                transDiv.style.transform = `translateX(${-transScrollX}px)`;
+                             } else {
+                                 transDiv.style.transform = `translateX(0)`;
+                             }
                         }
                     }
                 }

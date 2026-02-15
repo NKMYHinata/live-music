@@ -28,8 +28,52 @@
         .cover-img {
             object-fit: cover;
             background-color: #ddd;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            transition: border-radius 0.3s ease;
+            --shadow-base: 0 5px 15px rgba(0,0,0,0.2);
+            --shadow-border: 0 0 0 0 transparent;
+            --shadow-glow: 0 0 0 0 transparent;
+            box-shadow: var(--shadow-border), var(--shadow-glow), var(--shadow-base);
+            transition: border-radius 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .enable-border .cover-img {
+             --shadow-border: 0 0 0 4px var(--theme-color);
+        }
+        
+        .enable-glow .cover-img {
+             --shadow-glow: 0 0 30px var(--theme-color);
+        }
+
+        /* --- CD Center Effect --- */
+        .cover-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        /* Only show CD hole when in circle mode */
+        .shape-circle .cover-wrapper::before {
+            content: '';
+            position: absolute;
+            width: 18%; /* Outer ring */
+            height: 18%;
+            background-color: var(--theme-color);
+            border-radius: 50%;
+            z-index: 10;
+            opacity: 0.9;
+            pointer-events: none;
+        }
+        
+        .shape-circle .cover-wrapper::after {
+            content: '';
+            position: absolute;
+            width: 10%; /* Inner hole */
+            height: 10%;
+            background-color: #222; /* Dark hole */
+            border-radius: 50%;
+            z-index: 11;
+            pointer-events: none;
         }
         
         .rotating {
@@ -112,11 +156,16 @@
         .layout-boxed .cover-section {
             flex-shrink: 0;
             display: flex;
+            position: relative;
+            align-items: center;
+            justify-content: center;
+            width: 180px;
+            height: 180px;
         }
 
         .layout-boxed .cover-img {
-            width: 180px; /* Reduced Size */
-            height: 180px;
+            width: 100%;
+            height: 100%;
             border-radius: var(--radius-small);
         }
         
@@ -179,12 +228,12 @@
             background-color: var(--bg-color);
             padding: 0;
             border-radius: 100px;
-            width: 850px; /* Increased Width */
+            width: 100%; /* Adaptive Width */
             height: 150px; /* Increased Height */
             box-shadow: var(--shadow-soft);
             position: relative;
             box-sizing: border-box;
-            overflow: hidden;
+            /* overflow: hidden; Removed to allow glow/border effects */
             transition: padding 0.3s ease;
         }
 
@@ -193,29 +242,35 @@
             padding-left: 25px; 
         }
 
-        .layout-bar.shape-rect .cover-img {
-            width: 120px; /* Increased */
+        .layout-bar.shape-rect .cover-wrapper {
+            width: 120px;
             height: 120px;
-            border-radius: var(--radius-small);
             margin-right: 30px;
-            flex-shrink: 0;
-            object-fit: cover;
-            margin-left: 0;
             transition: all 0.3s ease;
+        }
+
+        .layout-bar.shape-rect .cover-img {
+            width: 100%;
+            height: 100%;
+            border-radius: var(--radius-small);
+            object-fit: cover;
         }
 
         /* Circle Shape specific */
         .layout-bar.shape-circle {
-             padding-left: 0; 
+             padding-left: 10px; /* Center the circle (150/2 - 130/2 = 10) */
         }
 
-        .layout-bar.shape-circle .cover-img {
-            width: 150px; /* Match container height */
-            height: 150px;
-            border-radius: 50%;
+        .layout-bar.shape-circle .cover-wrapper {
+            width: 130px; /* Smaller than bar height (150px) to show border */
+            height: 130px;
             margin-right: 30px;
-            margin-left: 0;
-            flex-shrink: 0;
+        }
+        
+        .layout-bar.shape-circle .cover-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
         }
         
         .layout-bar .info-group {
@@ -228,14 +283,14 @@
         }
         
         .layout-bar .title {
-            font-size: 34px; /* Larger */
+            font-size: 48px; /* Larger */
             line-height: 1.2; /* Increased line height to avoid clipping */
             margin-bottom: 8px; /* Add margin to separate from artist */
             padding-top: 4px; /* Avoid top clipping */
         }
         
         .layout-bar .artist {
-            font-size: 24px; /* Larger */
+            font-size: 32px; /* Larger */
             margin-top: 0; /* Handled by title margin */
         }
         
@@ -251,14 +306,14 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            width: 220px;
+            width: 380px; /* Longer progress bar */
             flex-shrink: 0;
             gap: 8px;
             margin-right: 30px; /* Add margin right for visual balance */
         }
         
         .layout-bar .time-row {
-             font-size: 24px; /* Larger: was 20px */
+             font-size: 32px; /* Larger */
              font-weight: 800; /* Bolder */
              display: flex;
              justify-content: space-between;
@@ -286,7 +341,7 @@
 
     <!-- Layout 1: Boxed -->
     <div id="layout-boxed" class="layout-boxed hidden">
-        <div class="cover-section">
+        <div class="cover-section cover-wrapper">
             <img class="cover-img" src="" crossorigin="Anonymous">
         </div>
         <div class="info-section">
@@ -308,7 +363,9 @@
 
     <!-- Layout 2: Bar -->
     <div id="layout-bar" class="layout-bar hidden">
-        <img class="cover-img" src="" crossorigin="Anonymous">
+        <div class="cover-wrapper">
+            <img class="cover-img" src="" crossorigin="Anonymous">
+        </div>
         <div class="info-group">
             <div class="title-wrapper"><div class="title">Waiting...</div></div>
             <div class="artist">Artist</div>
@@ -334,6 +391,8 @@
         let appSettings = {
             layout: 'boxed',
             coverStyle: 'rect', 
+            coverBorder: false,
+            coverGlow: false,
             colorMode: 'light', // Default
             autoBgColor: false,
             autoThemeColor: false,
@@ -385,10 +444,17 @@
             layoutBoxed.classList.add(`shape-${coverShape}`);
             layoutBar.classList.add(`shape-${coverShape}`);
             
+            // 3. Cover Effects
+            if (appSettings.coverBorder) document.body.classList.add('enable-border');
+            else document.body.classList.remove('enable-border');
+            
+            if (appSettings.coverGlow) document.body.classList.add('enable-glow');
+            else document.body.classList.remove('enable-glow');
+
             // Handle Rotation
             updateRotation();
 
-            // 3. Colors
+            // 4. Colors
             // Apply BG Color
             if (appSettings.autoBgColor && !appSettings.autoThemeColor) {
                  // BG Auto, Theme Manual
