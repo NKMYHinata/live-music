@@ -597,7 +597,13 @@
                     if (song.hMusic && song.hMusic.playTime) ms = song.hMusic.playTime;
                     if (song.playTime) ms = song.playTime;
                     songDuration = ms / 1000;
-                    startTime = Date.now();
+                    
+                    // Use server timestamp if available to sync across devices/refreshes
+                    if (msg.data.timestamp) {
+                        startTime = msg.data.timestamp;
+                    } else {
+                        startTime = Date.now();
+                    }
                 }
             } else if (msg.type === 'settings') {
                 // Sync Settings

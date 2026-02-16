@@ -451,7 +451,14 @@
                     else if (song.playTime) ms = song.playTime;
                     
                     songDuration = ms / 1000;
-                    startTime = Date.now(); // Resync start
+                    
+                    // Use server timestamp if available to sync
+                    if (msg.data.timestamp) {
+                        startTime = msg.data.timestamp;
+                    } else {
+                        startTime = Date.now();
+                    }
+                    
                     isPlaying = true;
                 }
             } else if (msg.type === 'lyrics') {
