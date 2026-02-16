@@ -11,7 +11,14 @@
 
 **Live Music** is a lightweight, high-performance "Now Playing" overlay for OBS Studio, specifically designed for Netease Cloud Music (PC Client). It captures real-time song information, lyrics, and playback progress with minimal system resource usage.
 
-![Preview](https://via.placeholder.com/600x200?text=Live+Music+Preview)
+![Preview](https://github.com/user-attachments/assets/11c5d899-09e3-49ac-8ce7-4446200b68ce)
+
+![Preview](https://github.com/user-attachments/assets/4635ee23-5207-4dbe-9c27-fee78ed96ff2)
+
+![Preview](https://github.com/user-attachments/assets/bb2392f0-46ee-4273-8d25-b23de77ad44c)
+
+![Preview](https://github.com/user-attachments/assets/639c895c-7378-40e9-8f15-fbd56dbb4ca7)
+
 
 ## ✨ 特性 (Features)
 
@@ -21,10 +28,6 @@
 *   **进度追踪 (Progress Tracking)**: 支持拖拽进度的平滑进度条。 (Smooth progress bar that supports seeking.)
 *   **极低资源占用 (Zero CPU Usage when Idle)**: 事件驱动架构，空闲时 CPU 占用几乎为 0。 (Event-driven architecture, 0% CPU usage when idle.)
 *   **VIP 支持 (VIP Support)**: 完美支持 VIP 付费歌曲的信息获取。 (Works seamlessly with VIP/Paid songs.)
-
-## 📐 Use Case Diagram (用例图)
-
-![Use Case Diagram](https://github.com/user-attachments/assets/11c5d899-09e3-49ac-8ce7-4446200b68ce)
 
 ## 🛠️ 安装与使用 (Installation & Usage)
 
