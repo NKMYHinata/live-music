@@ -42,8 +42,8 @@
                10% - 90%: Black (Visible)
                90% - 100%: Black to Transparent (Right Fade)
             */
-            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
-            mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 85%, transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0%, black 5%, black 85%, transparent 100%);
         }
 
         #lyrics-container {
@@ -52,8 +52,8 @@
             left: 0;
             right: 0;
             /* Increased padding to push content further into the visible zone */
-            /* This ensures the start of the line aligns with where the fade ends (15% width) */
-            padding: 0 15vw; 
+            /* This ensures the start of the line aligns with where the fade ends (5% width) */
+            padding: 0 5vw; 
             display: flex;
             flex-direction: column;
             /* Elastic scrolling */
