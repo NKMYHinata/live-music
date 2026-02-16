@@ -508,11 +508,11 @@
 
             <div class="form-group">
                 <label>歌词偏移 (全局)</label>
-                <div class="info-text">如果歌词不同步可在此调整。默认: 0.0s</div>
+                <div class="info-text">如果歌词不同步可在此调整。默认: -0.4s (网易云音乐平滑切换导致的延迟)</div>
                 <div class="toggle-row" style="justify-content: flex-start; gap: 15px;">
                     <div class="offset-controls">
                         <button id="offsetDec" class="offset-btn">-</button>
-                        <input type="number" id="lyricOffset" class="offset-input" step="0.1" value="0.0">
+                        <input type="number" id="lyricOffset" class="offset-input" step="0.1" value="-0.4">
                         <button id="offsetInc" class="offset-btn">+</button>
                     </div>
                     <span style="font-size: 14px; color: #aaa;">秒</span>
@@ -673,7 +673,7 @@
                 // Default Lyric Settings
                 lyricFontSize: 40,
                 lyricBlur: 2,
-                lyricOffset: 0,
+                lyricOffset: -0.4,
                 lyricAlign: 'left',
                 autoLyricBg: true,
                 autoLyricTheme: true,
@@ -729,7 +729,7 @@
             els.lyricBlur.value = settings.lyricBlur !== undefined ? settings.lyricBlur : 2;
             els.lyricBlurValue.textContent = (settings.lyricBlur !== undefined ? settings.lyricBlur : 2) + 'px';
             
-            els.lyricOffset.value = (settings.lyricOffset || 0).toFixed(1);
+            els.lyricOffset.value = (settings.lyricOffset !== undefined ? settings.lyricOffset : -0.4).toFixed(1);
 
             for (const radio of els.lyricAlign) {
                 if (radio.value === (settings.lyricAlign || 'left')) {

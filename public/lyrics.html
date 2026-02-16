@@ -634,9 +634,8 @@
                 if (songTime > songDuration) songTime = songDuration;
 
                 // Apply Offsets
-                // Default offset is -0.3s (Lyrics are 0.3s ahead of audio)
                 // User offset is added to that
-                const userOffset = settings.lyricOffset || 0;
+                const userOffset = settings.lyricOffset !== undefined ? settings.lyricOffset : -0.4;
                 const effectiveTime = songTime + BASE_OFFSET + userOffset;
 
                 // 1. Find Active Line
