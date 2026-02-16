@@ -183,7 +183,7 @@ function startServer(configManager, userDataPath) {
 
         // Send current song if available
         if (currentSong) {
-            ws.send(JSON.stringify({ type: 'song', data: currentSong.songData }));
+            ws.send(JSON.stringify({ type: 'song', data: { ...currentSong.songData, timestamp: currentSong.timestamp } }));
             if (currentSong.lyricsData) {
                 ws.send(JSON.stringify({ type: 'lyrics', data: currentSong.lyricsData }));
             } else {
@@ -386,15 +386,16 @@ function checkTransition() {
           console.log(`[Transition] Confirmed match! Switching to: ${songName} (ID: ${songId})`);
           
           currentSong = matchedItem;
-          broadcast('song', currentSong.songData);
+          // Update timestamp to now (start of playback)
+          currentSong.timestamp = Date.now();
+          
+          broadcast('song', { ...currentSong.songData, timestamp: currentSong.timestamp });
           
           if (currentSong.lyricsData) {
               broadcast('lyrics', currentSong.lyricsData);
           } else {
               fetchLyrics(songId);
           }
-          
-          matchedItem.timestamp = Date.now();
       } 
   } 
 }
